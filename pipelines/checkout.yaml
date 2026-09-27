@@ -1,0 +1,46 @@
+name: DevSecOps CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+
+  # ============================================================
+  # 1. CHECKOUT SOURCE CODE
+  # ============================================================
+  checkout:
+    name: 01 - Checkout Repository
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # Checkout the repository that triggered this workflow
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      # Verify where the repository was cloned
+      - name: Show working directory
+        run: |
+          echo "Current working directory:"
+          pwd
+
+      # Verify that the source code exists on the runner
+      - name: List repository contents
+        run: |
+          echo "Repository successfully checked out."
+          echo "Listing repository contents:"
+          ls -la
+
+      # Optional: Show directories and files recursively
+      - name: Show repository structure
+        run: |
+          echo "Repository structure:"
+          find . -maxdepth 2 -type f | sort

@@ -22,25 +22,155 @@ jobs:
 
     steps:
 
-      # Checkout the repository that triggered this workflow
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      # Verify where the repository was cloned
       - name: Show working directory
         run: |
           echo "Current working directory:"
           pwd
 
-      # Verify that the source code exists on the runner
       - name: List repository contents
         run: |
           echo "Repository successfully checked out."
           echo "Listing repository contents:"
           ls -la
 
-      # Optional: Show directories and files recursively
       - name: Show repository structure
         run: |
           echo "Repository structure:"
           find . -maxdepth 2 -type f | sort
+
+
+  # ============================================================
+  # 2. DOCKER & DOCKER COMPOSE SETUP AND VALIDATION
+  # ============================================================
+  docker-setup:
+    name: 02 - Docker & Docker Compose Setup
+    runs-on: ubuntu-latest
+    needs: checkout
+
+    steps:
+
+      # --------------------------------------------------------
+      # Check Docker
+      # --------------------------------------------------------
+      - name: Check Docker
+        run: |
+          echo "Checking Docker installation..."
+
+          if command -v docker >/dev/null 2>&1; then
+            echo "Docker is already installed."
+            docker --version
+          else
+            echo "Docker is NOT installed."
+            echo "Installing Docker..."
+
+            sudo apt-get update
+            sudo apt-get install -y docker.io
+
+            echo "Docker installation completed."
+            docker --version
+          fi
+
+
+      # --------------------------------------------------------
+      # Check Docker Compose
+      # --------------------------------------------------------
+      - name: Check Docker Compose
+        run: |
+          echo "Checking Docker Compose installation..."
+
+          if docker compose version >/dev/null 2>&1; then
+            echo "Docker Compose is already installed."
+            docker compose version
+          else
+            echo "Docker Compose is NOT installed."
+            echo "Installing Docker Compose..."
+
+            sudo apt-get update
+            sudo apt-get install -y docker-compose-plugin
+
+            echo "Docker Compose installation completed."
+            docker compose version
+          fi
+
+
+      # --------------------------------------------------------
+      # Verify Docker
+      # --------------------------------------------------------
+      - name: Verify Docker
+        run: |
+          echo "Docker Version:"
+          docker --version
+
+          echo ""
+          echo "Docker Engine Information:"
+          docker info
+
+
+      # --------------------------------------------------------
+      # Verify Docker Compose
+      # --------------------------------------------------------
+      - name: Verify Docker Compose
+        run: |
+          echo "Docker Compose Version:"
+          docker compose version
+
+
+      # --------------------------------------------------------
+      # Pull Public Image
+      # --------------------------------------------------------
+      - name: Pull Test Docker Image
+        run: |
+          echo "Pulling hello-world image from Docker Hub..."
+
+          docker pull hello-world:latest
+
+          echo "Image pulled successfully."
+
+
+      # --------------------------------------------------------
+      # List Docker Images
+      # --------------------------------------------------------
+      - name: List Docker Images
+        run: |
+          echo "Docker images currently available:"
+          docker images
+
+
+      # --------------------------------------------------------
+      # Run Test Container
+      # --------------------------------------------------------
+      - name: Test Docker
+        run: |
+          echo "Running hello-world container..."
+
+          docker run --rm hello-world
+
+          echo "Docker test completed successfully."
+
+
+      # --------------------------------------------------------
+      # Final Docker Environment Validation
+      # --------------------------------------------------------
+      - name: Docker Environment Summary
+        run: |
+          echo "========================================"
+          echo "Docker Environment Summary"
+          echo "========================================"
+
+          echo ""
+          echo "Docker:"
+          docker --version
+
+          echo ""
+          echo "Docker Compose:"
+          docker compose version
+
+          echo ""
+          echo "Available Docker Images:"
+          docker images
+
+          echo ""
+          echo "Docker and Docker Compose are ready."
