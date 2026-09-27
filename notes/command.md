@@ -1,4 +1,4 @@
-# Kubernetes Resource Shortcuts — Student Quick Reference
+# Kubernetes Resource Shortcuts
 
 Kubernetes provides built-in **short names** for many resources. These shortcuts can make `kubectl` commands faster and easier to type.
 
