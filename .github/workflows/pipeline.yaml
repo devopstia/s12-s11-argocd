@@ -174,3 +174,35 @@ jobs:
 
           echo ""
           echo "Docker and Docker Compose are ready."
+
+
+  # ============================================================
+  # 3. BUILD APPLICATION IMAGES
+  # ============================================================
+  build-images:
+    name: 03 - Build Application Images
+    runs-on: ubuntu-latest
+    needs: docker-setup
+
+    steps:
+
+      # Each job runs on a new runner, so the source must be checked out again.
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: |
+          docker build \
+            --tag k8s-learning-backend:${{ github.sha }} \
+            ./k8s-learning-app/backend
+
+      - name: Build frontend image
+        run: |
+          docker build \
+            --tag k8s-learning-frontend:${{ github.sha }} \
+            ./k8s-learning-app/frontend
+
+      - name: List built application images
+        run: |
+          docker image ls \
+            --filter "reference=k8s-learning-*:${{ github.sha }}"
