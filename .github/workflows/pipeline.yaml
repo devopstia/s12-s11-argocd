@@ -190,9 +190,12 @@ jobs:
   # 3. BUILD APPLICATION IMAGES
   # ============================================================
   build-images:
-    name: 03 - Build Application Images
+    name: 03 - Build and Push Application Images
     runs-on: ubuntu-latest
     needs: docker-setup
+    env:
+      AWS_REGION: us-east-1
+      ECR_REGISTRY: 788210522308.dkr.ecr.us-east-1.amazonaws.com
 
     steps:
 
@@ -216,3 +219,47 @@ jobs:
         run: |
           docker image ls \
             --filter "reference=k8s-learning-*:${{ github.sha }}"
+
+      # Pull requests build the images but do not receive AWS credentials or push.
+      - name: Configure AWS credentials
+        if: github.event_name != 'pull_request'
+        uses: aws-actions/configure-aws-credentials@v6.3.0
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+          allowed-account-ids: '788210522308'
+
+      - name: Login to Amazon ECR
+        if: github.event_name != 'pull_request'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Tag images for Amazon ECR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker tag \
+            k8s-learning-backend:${{ github.sha }} \
+            $ECR_REGISTRY/backend:${{ github.sha }}
+          docker tag \
+            k8s-learning-backend:${{ github.sha }} \
+            $ECR_REGISTRY/backend:latest
+          docker tag \
+            k8s-learning-frontend:${{ github.sha }} \
+            $ECR_REGISTRY/frontend:${{ github.sha }}
+          docker tag \
+            k8s-learning-frontend:${{ github.sha }} \
+            $ECR_REGISTRY/frontend:latest
+
+      - name: Push images to Amazon ECR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push $ECR_REGISTRY/backend:${{ github.sha }}
+          docker push $ECR_REGISTRY/backend:latest
+          docker push $ECR_REGISTRY/frontend:${{ github.sha }}
+          docker push $ECR_REGISTRY/frontend:latest
+
+      - name: List pushed application images
+        if: github.event_name != 'pull_request'
+        run: |
+          docker image ls \
+            --filter "reference=$ECR_REGISTRY/*"
