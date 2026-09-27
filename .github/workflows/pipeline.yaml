@@ -4,10 +4,20 @@ on:
   push:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'notes/**'
+      - 'docs/**'
+      - '**/*.png'
 
   pull_request:
     branches:
       - main
+    paths-ignore:
+      - '**/*.md'
+      - 'notes/**'
+      - 'docs/**'
+      - '**/*.png'
 
   workflow_dispatch:
 
