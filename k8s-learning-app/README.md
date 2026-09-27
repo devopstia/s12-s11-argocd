@@ -5,8 +5,6 @@ lesson.** The website explains every API object and gives you a searchable
 kubectl cheat sheet; the repository around it shows how a real three-tier
 application is packaged, deployed, secured and observed in a cluster.
 
-Deploying this app *is* the exercise.
-
 ---
 
 ## What's in the box

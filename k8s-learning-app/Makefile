@@ -41,6 +41,6 @@ port-forward:   ## reach the app without an Ingress
 psql:           ## open a shell on the database
 	kubectl -n $(NS) exec -it postgres-0 -- psql -U k8slearn -d k8slearn
 
-reset-db:       ## DESTRUCTIVE: delete the database and its volume
+reset-db:       
 	kubectl -n $(NS) delete statefulset postgres --ignore-not-found
 	kubectl -n $(NS) delete pvc data-postgres-0 --ignore-not-found
