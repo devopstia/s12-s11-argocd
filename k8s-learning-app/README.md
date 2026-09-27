@@ -62,6 +62,10 @@ Password: admin-password
 
 You can also create a normal student account from the registration page.
 
+To run the application locally from the images published to Amazon ECR instead
+of building them on your machine, follow
+[`docs/ECR-LOCAL-DEPLOYMENT.md`](docs/ECR-LOCAL-DEPLOYMENT.md).
+
 Or run the pieces directly for hot reload:
 
 ```bash
@@ -120,6 +124,7 @@ watch it happen. It is the fastest way to understand what GitOps actually means.
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | How the pieces fit, request flow, auth design, data model |
 | [`docs/KUBERNETES-WALKTHROUGH.md`](docs/KUBERNETES-WALKTHROUGH.md) | **Start here.** A guided tour of every manifest, with exercises that break things on purpose |
 | [`docs/API.md`](docs/API.md) | Every endpoint, with curl examples |
+| [`docs/ECR-LOCAL-DEPLOYMENT.md`](docs/ECR-LOCAL-DEPLOYMENT.md) | Pull the private ECR images and run them locally with Docker Compose |
 
 ---
 

@@ -1,0 +1,60 @@
+# Run the application locally using images published to Amazon ECR.
+# Authenticate Docker to ECR before running this file; see docs/ECR-LOCAL-DEPLOYMENT.md.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-k8slearn}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devpass}
+      POSTGRES_DB: ${POSTGRES_DB:-k8slearn}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-k8slearn} -d ${POSTGRES_DB:-k8slearn}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  migrate:
+    image: ${ECR_REGISTRY:-788210522308.dkr.ecr.us-east-1.amazonaws.com}/backend:${IMAGE_TAG:-latest}
+    pull_policy: always
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-k8slearn}:${POSTGRES_PASSWORD:-devpass}@postgres:5432/${POSTGRES_DB:-k8slearn}
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-at-least-32-characters}
+      DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:-admin@example.com}
+      DEFAULT_ADMIN_PASSWORD: ${DEFAULT_ADMIN_PASSWORD:-admin-password}
+      DEFAULT_ADMIN_NAME: ${DEFAULT_ADMIN_NAME:-Local Admin}
+      RUN_MIGRATIONS_ONLY: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: ${ECR_REGISTRY:-788210522308.dkr.ecr.us-east-1.amazonaws.com}/backend:${IMAGE_TAG:-latest}
+    pull_policy: always
+    environment:
+      NODE_ENV: production
+      PORT: "4000"
+      DATABASE_URL: postgres://${POSTGRES_USER:-k8slearn}:${POSTGRES_PASSWORD:-devpass}@postgres:5432/${POSTGRES_DB:-k8slearn}
+      JWT_SECRET: ${JWT_SECRET:-local-development-secret-at-least-32-characters}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      COOKIE_SECURE: "false"
+    ports:
+      - "4000:4000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    image: ${ECR_REGISTRY:-788210522308.dkr.ecr.us-east-1.amazonaws.com}/frontend:${IMAGE_TAG:-latest}
+    pull_policy: always
+    ports:
+      - "8080:8080"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
