@@ -1,0 +1,736 @@
+name: DevSecOps CI/CD Pipeline Demo
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+
+  # ============================================================
+  # 1. CHECKOUT SOURCE CODE
+  # ============================================================
+  checkout:
+    name: 01 - Checkout Repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        run: |
+          echo "Checking out application source code..."
+          sleep 2
+          echo "Repository checkout completed."
+
+
+  # ============================================================
+  # 2. UNIT TEST
+  # ============================================================
+  unit-test:
+    name: 02 - Unit Test
+    runs-on: ubuntu-latest
+    needs: checkout
+
+    steps:
+      - name: Run unit tests
+        run: |
+          echo "Running application unit tests..."
+          sleep 2
+          echo "Unit tests completed successfully."
+
+
+  # ============================================================
+  # 3. CODE QUALITY ANALYSIS
+  # Example real tool: SonarQube / SonarCloud
+  # ============================================================
+  code-quality:
+    name: 03 - Code Quality Analysis
+    runs-on: ubuntu-latest
+    needs: unit-test
+
+    steps:
+      - name: Analyze code quality
+        run: |
+          echo "Running code quality analysis..."
+          sleep 2
+          echo "Code quality analysis completed successfully."
+
+
+  # ============================================================
+  # 4. SECRET SCANNING
+  # Example real tool: Gitleaks
+  # ============================================================
+  secret-scan:
+    name: 04 - Secret Scan
+    runs-on: ubuntu-latest
+    needs: code-quality
+
+    steps:
+      - name: Scan repository for secrets
+        run: |
+          echo "Scanning repository for exposed secrets..."
+          sleep 2
+          echo "Secret scanning completed."
+          echo "No exposed secrets detected."
+
+
+  # ============================================================
+  # 5. STATIC APPLICATION SECURITY TESTING
+  # SAST
+  # ============================================================
+  sast-scan:
+    name: 05 - SAST Security Scan
+    runs-on: ubuntu-latest
+    needs: secret-scan
+
+    steps:
+      - name: Run SAST scan
+        run: |
+          echo "Running static application security testing..."
+          sleep 2
+          echo "SAST scan completed successfully."
+
+
+  # ============================================================
+  # 6. INFRASTRUCTURE / CONFIGURATION SCAN
+  # Example real tool: Checkov
+  # ============================================================
+  config-scan:
+    name: 06 - Configuration Security Scan
+    runs-on: ubuntu-latest
+    needs: sast-scan
+
+    steps:
+      - name: Scan configuration
+        run: |
+          echo "Scanning Dockerfile, Kubernetes, Helm and IaC configuration..."
+          sleep 2
+          echo "Configuration security scan completed."
+
+
+  # ============================================================
+  # 7. AUTHENTICATE TO VAULT
+  # ============================================================
+  vault-auth:
+    name: 07 - Authenticate to Vault
+    runs-on: ubuntu-latest
+    needs: config-scan
+
+    steps:
+      - name: Authenticate to Vault
+        run: |
+          echo "Authenticating to HashiCorp Vault..."
+          sleep 2
+          echo "Vault authentication successful."
+
+
+  # ============================================================
+  # 8. BUILD CONTAINER IMAGE
+  # ============================================================
+  build-image:
+    name: 08 - Build Container Image
+    runs-on: ubuntu-latest
+    needs: vault-auth
+
+    steps:
+      - name: Build Docker image
+        run: |
+          echo "Building Docker container image..."
+          sleep 2
+          echo "Docker image built successfully."
+
+
+  # ============================================================
+  # 9. CONTAINER IMAGE VULNERABILITY SCAN
+  # Example real tool: Trivy
+  # ============================================================
+  image-scan:
+    name: 09 - Scan Container Image
+    runs-on: ubuntu-latest
+    needs: build-image
+
+    steps:
+      - name: Scan Docker image
+        run: |
+          echo "Scanning Docker image for vulnerabilities..."
+          sleep 2
+          echo "Container image vulnerability scan completed."
+
+
+  # ============================================================
+  # 10. AUTHENTICATE TO AWS
+  # Production: Prefer GitHub OIDC instead of static AWS keys
+  # ============================================================
+  aws-auth:
+    name: 10 - Authenticate to AWS
+    runs-on: ubuntu-latest
+    needs: image-scan
+
+    steps:
+      - name: Authenticate to AWS
+        run: |
+          echo "Authenticating GitHub Actions to AWS..."
+          sleep 2
+          echo "AWS authentication successful."
+
+
+  # ============================================================
+  # 11. AUTHENTICATE DOCKER TO AMAZON ECR
+  # ============================================================
+  ecr-auth:
+    name: 11 - Authenticate to Amazon ECR
+    runs-on: ubuntu-latest
+    needs: aws-auth
+
+    steps:
+      - name: Login to Amazon ECR
+        run: |
+          echo "Authenticating Docker to Amazon ECR..."
+          sleep 2
+          echo "Amazon ECR authentication successful."
+
+
+  # ============================================================
+  # 12. PUSH IMAGE TO ECR
+  # ============================================================
+  push-image:
+    name: 12 - Push Image to ECR
+    runs-on: ubuntu-latest
+    needs: ecr-auth
+
+    steps:
+      - name: Push Docker image
+        run: |
+          echo "Tagging Docker image..."
+          echo "Pushing Docker image to Amazon ECR..."
+          sleep 2
+          echo "Docker image pushed successfully."
+
+
+  # ============================================================
+  # 13. SIGN CONTAINER IMAGE
+  # Example real tool: Cosign
+  # ============================================================
+  sign-image:
+    name: 13 - Sign Container Image
+    runs-on: ubuntu-latest
+    needs: push-image
+
+    steps:
+      - name: Sign image
+        run: |
+          echo "Signing container image..."
+          sleep 2
+          echo "Container image signed successfully."
+
+
+  # ============================================================
+  # 14. CLONE GITOPS / DEPLOYMENT REPOSITORY
+  # ============================================================
+  clone-deployment-repo:
+    name: 14 - Clone Deployment Repository
+    runs-on: ubuntu-latest
+    needs: sign-image
+
+    steps:
+      - name: Clone deployment repository
+        run: |
+          echo "Cloning GitOps deployment repository..."
+          sleep 2
+          echo "Deployment repository cloned successfully."
+
+
+  # ============================================================
+  # 15. UPDATE IMAGE TAG
+  # ============================================================
+  update-image:
+    name: 15 - Update Deployment Image
+    runs-on: ubuntu-latest
+    needs: clone-deployment-repo
+
+    steps:
+      - name: Update image tag
+        run: |
+          echo "Locating application image in deployment manifests..."
+          echo "Replacing old image tag with newly built image tag..."
+          sleep 2
+          echo "Deployment manifest updated successfully."
+
+
+  # ============================================================
+  # 16. VALIDATE DEPLOYMENT MANIFESTS
+  # ============================================================
+  validate-manifests:
+    name: 16 - Validate Deployment Manifests
+    runs-on: ubuntu-latest
+    needs: update-image
+
+    steps:
+      - name: Validate manifests
+        run: |
+          echo "Validating Kubernetes and Helm deployment manifests..."
+          sleep 2
+          echo "Deployment manifests validated successfully."
+
+
+  # ============================================================
+  # 17. PUSH GITOPS CHANGES
+  # ============================================================
+  push-deployment:
+    name: 17 - Push Deployment Changes
+    runs-on: ubuntu-latest
+    needs: validate-manifests
+
+    steps:
+      - name: Commit and push changes
+        run: |
+          echo "Creating Git commit..."
+          echo "Committing updated image tag..."
+          echo "Pushing changes to deployment repository..."
+          sleep 2
+          echo "Deployment repository updated successfully."
+
+
+  # ============================================================
+  # 18. SYNC ARGO CD
+  # ============================================================
+  argocd-sync:
+    name: 18 - Sync Argo CD
+    runs-on: ubuntu-latest
+    needs: push-deployment
+
+    steps:
+      - name: Sync Argo CD application
+        run: |
+          echo "Connecting to Argo CD..."
+          echo "Starting Argo CD application synchronization..."
+          sleep 2
+          echo "Argo CD synchronization completed."
+
+
+  # ============================================================
+  # 19. VERIFY DEPLOYMENT
+  # ============================================================
+  verify-deployment:
+    name: 19 - Verify Deployment
+    runs-on: ubuntu-latest
+    needs: argocd-sync
+
+    steps:
+      - name: Verify application
+        run: |
+          echo "Checking Argo CD application health..."
+          echo "Checking Kubernetes deployment status..."
+          sleep 2
+          echo "Application deployment verified successfully."
+
+
+  # ============================================================
+  # 20. SEND NOTIFICATION
+  # ============================================================
+  notification:
+    name: 20 - Send Notification
+    runs-on: ubuntu-latest
+    needs: verify-deployment
+    if: always()
+
+    steps:
+      - name: Send notification
+        run: |
+          echo "Preparing pipeline notification..."
+          sleep 2
+          echo "CI/CD pipeline notification sent."
+
+
+### ======================================
+name: DevSecOps CI/CD Pipeline Demo
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+jobs:
+
+  # ============================================================
+  # 1. CHECKOUT
+  # ============================================================
+  checkout:
+    name: 01 - Checkout Repository
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source code
+        run: |
+          echo "Checking out application source code..."
+          sleep 2
+          echo "Repository checkout completed."
+
+
+  # ============================================================
+  # PARALLEL STAGE
+  #
+  # The following jobs all depend ONLY on checkout.
+  # Therefore GitHub Actions can run them at the same time.
+  #
+  #             ┌── Unit Test
+  #             ├── Code Quality
+  # Checkout ───┼── Secret Scan
+  #             ├── SAST
+  #             └── Config Scan
+  #
+  # ============================================================
+
+
+  # ============================================================
+  # 2A. UNIT TEST
+  # ============================================================
+  unit-test:
+    name: 02A - Unit Test
+    runs-on: ubuntu-latest
+    needs: checkout
+
+    steps:
+      - name: Run unit tests
+        run: |
+          echo "Running application unit tests..."
+          sleep 2
+          echo "Unit tests completed successfully."
+
+
+  # ============================================================
+  # 2B. CODE QUALITY
+  # Example: SonarQube / SonarCloud
+  # ============================================================
+  code-quality:
+    name: 02B - Code Quality Analysis
+    runs-on: ubuntu-latest
+    needs: checkout
+
+    steps:
+      - name: Analyze code quality
+        run: |
+          echo "Running code quality analysis..."
+          sleep 2
+          echo "Code quality analysis completed successfully."
+
+
+  # ============================================================
+  # 2C. SECRET SCANNING
+  # Example: Gitleaks
+  # ============================================================
+  secret-scan:
+    name: 02C - Secret Scan
+    runs-on: ubuntu-latest
+    needs: checkout
+
+    steps:
+      - name: Scan repository for secrets
+        run: |
+          echo "Scanning repository for exposed secrets..."
+          sleep 2
+          echo "Secret scanning completed."
+          echo "No exposed secrets detected."
+
+
+  # ============================================================
+  # 2D. SAST
+  # ============================================================
+  sast-scan:
+    name: 02D - SAST Security Scan
+    runs-on: ubuntu-latest
+    needs: checkout
+
+    steps:
+      - name: Run SAST scan
+        run: |
+          echo "Running static application security testing..."
+          sleep 2
+          echo "SAST scan completed successfully."
+
+
+  # ============================================================
+  # 2E. CONFIGURATION / IaC SECURITY SCAN
+  # Example: Checkov
+  # ============================================================
+  config-scan:
+    name: 02E - Configuration Security Scan
+    runs-on: ubuntu-latest
+    needs: checkout
+
+    steps:
+      - name: Scan configuration
+        run: |
+          echo "Scanning Dockerfile, Kubernetes, Helm and IaC configuration..."
+          sleep 2
+          echo "Configuration security scan completed."
+
+
+  # ============================================================
+  # 3. SECURITY / QUALITY GATE
+  #
+  # This job waits for ALL parallel jobs above.
+  # ============================================================
+  quality-gate:
+    name: 03 - Quality & Security Gate
+    runs-on: ubuntu-latest
+
+    needs:
+      - unit-test
+      - code-quality
+      - secret-scan
+      - sast-scan
+      - config-scan
+
+    steps:
+      - name: Validate previous checks
+        run: |
+          echo "All required testing and security jobs completed."
+          echo "Evaluating quality and security gates..."
+          sleep 2
+          echo "Quality and security gate passed."
+
+
+  # ============================================================
+  # 4. VAULT AUTHENTICATION
+  # ============================================================
+  vault-auth:
+    name: 04 - Authenticate to Vault
+    runs-on: ubuntu-latest
+    needs: quality-gate
+
+    steps:
+      - name: Authenticate to Vault
+        run: |
+          echo "Authenticating to HashiCorp Vault..."
+          sleep 2
+          echo "Vault authentication successful."
+
+
+  # ============================================================
+  # 5. BUILD IMAGE
+  # ============================================================
+  build-image:
+    name: 05 - Build Container Image
+    runs-on: ubuntu-latest
+    needs: vault-auth
+
+    steps:
+      - name: Build Docker image
+        run: |
+          echo "Building Docker container image..."
+          sleep 2
+          echo "Docker image built successfully."
+
+
+  # ============================================================
+  # 6. IMAGE VULNERABILITY SCAN
+  # Example: Trivy
+  # ============================================================
+  image-scan:
+    name: 06 - Scan Container Image
+    runs-on: ubuntu-latest
+    needs: build-image
+
+    steps:
+      - name: Scan Docker image
+        run: |
+          echo "Scanning Docker image for vulnerabilities..."
+          sleep 2
+          echo "Container image vulnerability scan completed."
+
+
+  # ============================================================
+  # 7. AWS AUTHENTICATION
+  # Production: GitHub OIDC -> AWS IAM role
+  # ============================================================
+  aws-auth:
+    name: 07 - Authenticate to AWS
+    runs-on: ubuntu-latest
+    needs: image-scan
+
+    steps:
+      - name: Authenticate to AWS
+        run: |
+          echo "Authenticating GitHub Actions to AWS..."
+          sleep 2
+          echo "AWS authentication successful."
+
+
+  # ============================================================
+  # 8. ECR AUTHENTICATION
+  # ============================================================
+  ecr-auth:
+    name: 08 - Authenticate to Amazon ECR
+    runs-on: ubuntu-latest
+    needs: aws-auth
+
+    steps:
+      - name: Login to Amazon ECR
+        run: |
+          echo "Authenticating Docker to Amazon ECR..."
+          sleep 2
+          echo "Amazon ECR authentication successful."
+
+
+  # ============================================================
+  # 9. PUSH IMAGE
+  # ============================================================
+  push-image:
+    name: 09 - Push Image to ECR
+    runs-on: ubuntu-latest
+    needs: ecr-auth
+
+    steps:
+      - name: Push Docker image
+        run: |
+          echo "Tagging Docker image..."
+          echo "Pushing Docker image to Amazon ECR..."
+          sleep 2
+          echo "Docker image pushed successfully."
+
+
+  # ============================================================
+  # 10. SIGN IMAGE
+  # Example: Cosign
+  # ============================================================
+  sign-image:
+    name: 10 - Sign Container Image
+    runs-on: ubuntu-latest
+    needs: push-image
+
+    steps:
+      - name: Sign image
+        run: |
+          echo "Signing container image..."
+          sleep 2
+          echo "Container image signed successfully."
+
+
+  # ============================================================
+  # 11. CLONE DEPLOYMENT / GITOPS REPOSITORY
+  # ============================================================
+  clone-deployment-repo:
+    name: 11 - Clone Deployment Repository
+    runs-on: ubuntu-latest
+    needs: sign-image
+
+    steps:
+      - name: Clone deployment repository
+        run: |
+          echo "Cloning GitOps deployment repository..."
+          sleep 2
+          echo "Deployment repository cloned successfully."
+
+
+  # ============================================================
+  # 12. UPDATE IMAGE
+  # ============================================================
+  update-image:
+    name: 12 - Update Deployment Image
+    runs-on: ubuntu-latest
+    needs: clone-deployment-repo
+
+    steps:
+      - name: Update image tag
+        run: |
+          echo "Locating application image in deployment manifests..."
+          echo "Replacing old image tag with newly built image tag..."
+          sleep 2
+          echo "Deployment manifest updated successfully."
+
+
+  # ============================================================
+  # 13. VALIDATE DEPLOYMENT MANIFESTS
+  # ============================================================
+  validate-manifests:
+    name: 13 - Validate Deployment Manifests
+    runs-on: ubuntu-latest
+    needs: update-image
+
+    steps:
+      - name: Validate manifests
+        run: |
+          echo "Validating Kubernetes and Helm deployment manifests..."
+          sleep 2
+          echo "Deployment manifests validated successfully."
+
+
+  # ============================================================
+  # 14. PUSH DEPLOYMENT CHANGES
+  # ============================================================
+  push-deployment:
+    name: 14 - Push Deployment Changes
+    runs-on: ubuntu-latest
+    needs: validate-manifests
+
+    steps:
+      - name: Commit and push changes
+        run: |
+          echo "Creating Git commit..."
+          echo "Committing updated image tag..."
+          echo "Pushing changes to deployment repository..."
+          sleep 2
+          echo "Deployment repository updated successfully."
+
+
+  # ============================================================
+  # 15. ARGO CD SYNC
+  # ============================================================
+  argocd-sync:
+    name: 15 - Sync Argo CD
+    runs-on: ubuntu-latest
+    needs: push-deployment
+
+    steps:
+      - name: Sync Argo CD application
+        run: |
+          echo "Connecting to Argo CD..."
+          echo "Starting Argo CD application synchronization..."
+          sleep 2
+          echo "Argo CD synchronization completed."
+
+
+  # ============================================================
+  # 16. VERIFY DEPLOYMENT
+  # ============================================================
+  verify-deployment:
+    name: 16 - Verify Deployment
+    runs-on: ubuntu-latest
+    needs: argocd-sync
+
+    steps:
+      - name: Verify application
+        run: |
+          echo "Checking Argo CD application health..."
+          echo "Checking Kubernetes deployment status..."
+          sleep 2
+          echo "Application deployment verified successfully."
+
+
+  # ============================================================
+  # 17. NOTIFICATION
+  # ============================================================
+  notification:
+    name: 17 - Send Notification
+    runs-on: ubuntu-latest
+    needs: verify-deployment
+    if: always()
+
+    steps:
+      - name: Send notification
+        run: |
+          echo "Preparing pipeline notification..."
+          sleep 2
+          echo "CI/CD pipeline notification sent."
