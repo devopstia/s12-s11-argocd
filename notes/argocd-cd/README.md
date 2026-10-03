@@ -15,3 +15,9 @@ argocd login 165.227.254.154
 ```
 
 https://165.227.254.154/settings/repos
+
+
+NS=argocd
+kubectl get namespace "$NS" -o json \
+  | tr -d "\n" | sed "s/\"finalizers\": \[[^]]\+\]/\"finalizers\": []/" \
+  | kubectl replace --raw "/api/v1/namespaces/$NS/finalize" -f -

@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nginx-stg
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/devopstia/s12-s11-argocd.git
+    targetRevision: main
+    path: charts/nginx
+    helm:
+      releaseName: nginx-stg
+      valueFiles:
+        - values-stg.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: nginx-stg
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

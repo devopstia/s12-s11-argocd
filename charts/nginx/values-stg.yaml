@@ -1,0 +1,27 @@
+replicaCount: 2
+
+image:
+  repository: nginx
+  tag: "1.27-alpine"
+  pullPolicy: IfNotPresent
+
+podAnnotations:
+  environment: stg
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 250m
+    memory: 256Mi
+
+autoscaling:
+  enabled: false
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false

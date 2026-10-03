@@ -1,0 +1,30 @@
+replicaCount: 3
+
+image:
+  repository: nginx
+  tag: "1.27-alpine"
+  pullPolicy: Always
+
+podAnnotations:
+  environment: prd
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
