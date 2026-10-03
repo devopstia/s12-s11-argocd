@@ -1,8 +1,8 @@
 replicaCount: 3
 
 image:
-  repository: nginx
-  tag: "1.27-alpine"
+  repository: leonardtia/articles
+  tag: "develop"
   pullPolicy: IfNotPresent
 
 podAnnotations:

@@ -20,3 +20,8 @@ helm install jenkins ./jenkins \
 helm upgrade --install jenkins ./jenkins \
   --namespace jenkins \
   --create-namespace
+
+
+kubectl scale deployment nginx-dev \
+    -n nginx-dev \
+    --replicas=1
