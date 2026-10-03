@@ -1,4 +1,4 @@
-replicaCount: 3
+replicaCount: 1
 
 image:
   repository: leonardtia/articles
@@ -20,7 +20,7 @@ autoscaling:
   enabled: false
 
 service:
-  type: LoadBalancer
+  type: ClusterIP
   port: 80
 
 ingress:
