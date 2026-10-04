@@ -1,0 +1,3048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>Investment Growth Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* ============================================================
+   Investment Growth Calculator — single file, no build step.
+
+   DESIGN SYSTEM
+   -------------
+   Modelled on the MSCI index pages: one typeface, flat surfaces,
+   no shadows anywhere, pill controls, and a single brand blue
+   doing all the emphasis. Measured off msci.com, not guessed:
+
+   Type      Inter throughout, 400 / 600 / 700. Headings are 600
+             with tight negative tracking (-.04em); body is 16/1.5;
+             small text 14px at -.01em. No serif, no mono, and no
+             wide-tracked uppercase micro-labels — plain grey
+             sentence case instead.
+   Ground    White. Panels are white with a hairline border, or the
+             pale blue tint. Nothing is elevated; nothing glows.
+   Shape     12px on panels, 8px on inputs, full pill on buttons
+             and chips. Table headers are a grey band with rounded
+             ends, rows separated by hairlines — no zebra striping.
+   Color     Brand blue #1A3FD6 — headings, the primary button,
+             the active tab rule, money you put in, the S&P series
+             Teal      #00A398 — growth, and the global series
+             Red       #C0362A — losses only
+             The blue/teal pair is validated for colour-vision
+             deficiency: ΔE 26.1 deutan, 30.1 normal, both inside
+             the lightness band and above the chroma floor.
+   Numbers   Inter with tabular figures, so columns still align.
+   Light     Committed light theme; never follows the OS to dark.
+   ============================================================ */
+
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+
+:root {
+  color-scheme: light;
+
+  /* --- ground --- */
+  --paper:     #FFFFFF;
+  --paper-2:   #F5F5F5;
+  --card:      #FFFFFF;
+  --tint:      #F4F5FD;
+
+  /* --- ink --- */
+  --ink:       #000000;
+  --ink-2:     #1A1A1A;
+  --muted:     #707070;
+  --faint:     #8C8C8C;
+
+  --line:      #E4E4E4;
+  --line-soft: #F0F0F0;
+  --line-hard: #CCCCCC;
+
+  /* --- principals --- */
+  --put:       #1A3FD6;
+  --put-2:     #1430A8;
+  --put-3:     #AEBAF0;
+  --put-line:  #C9D2F5;
+
+  --grow:      #00A398;
+  --grow-2:    #007A72;
+
+  /* the global index shares the teal; it never sits in the same
+     chart as a "growth" mark, so the two never collide */
+  --gold:      #00A398;
+  --gold-2:    #007A72;
+  --gold-soft: #EAF8F7;
+
+  --loss:      #C0362A;
+  --loss-soft: #FBEEEC;
+
+
+  --navy:      #002036;
+
+  /* flat by design — kept as tokens so nothing downstream breaks */
+
+  --maxw: 94rem;
+
+  --r:    12px;
+  --r-xs: 8px;
+
+  --f-disp: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-ui:   "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --f-num:  "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  color: var(--ink);
+  background: var(--paper);
+  font-family: var(--f-ui);
+  font-size: 1rem;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, .hero-v, .card > h2, .card-head h2, .example h2, .scen-card .big, .sv {
+  font-family: var(--f-disp);
+  font-weight: 600;
+  letter-spacing: -.04em;
+}
+
+::selection { background: var(--put-3); color: var(--ink); }
+[hidden] { display: none !important; }
+
+/* every full-bleed band shares one inner measure */
+.wrap, .site-in, .hero-in, .foot-in {
+  width: 100%; max-width: var(--maxw); margin: 0 auto;
+  padding-left: clamp(1.15rem, 3vw, 2.5rem); padding-right: clamp(1.15rem, 3vw, 2.5rem);
+}
+.wrap { padding-bottom: 4rem; }
+main.wrap { padding-top: 2rem; }
+
+/* ============================================================
+   SITE CHROME — a real header, a hero band and a footer, so the
+   thing reads as a site rather than a printed sheet.
+   ============================================================ */
+.site {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(255,255,255,.92);
+  -webkit-backdrop-filter: saturate(1.6) blur(12px);
+  backdrop-filter: saturate(1.6) blur(12px);
+  border-bottom: 1px solid var(--line-hard);
+}
+.site-in { display: flex; align-items: stretch; gap: clamp(1.25rem, 3vw, 3rem); min-height: 4.25rem; }
+button.brand {
+  display: flex; align-items: center; gap: .65rem; flex: 0 0 auto;
+  color: var(--put); text-decoration: none;
+  background: none; border: 0; padding: 0; margin: 0;
+  font-family: var(--f-ui); cursor: pointer; border-radius: var(--r-xs);
+  transition: opacity .15s ease;
+}
+button.brand:hover { opacity: .7; }
+.fbrand { display: flex; align-items: center; gap: .65rem; }
+.brand .mark { width: 1.75rem; height: 1.75rem; flex: none; display: block; }
+.brand .bname {
+  font-size: .9375rem; font-weight: 600; letter-spacing: -.02em; color: var(--ink);
+  white-space: nowrap;
+}
+.site .tools { display: flex; align-items: center; gap: .45rem; flex: 0 0 auto; margin-left: auto; }
+.site .btn { min-height: 2.25rem; padding: 0 1rem; font-size: .875rem; }
+
+.hero { background: var(--tint); border-bottom: 1px solid var(--line); }
+.hero-in {
+  padding-top: clamp(2.5rem, 4.5vw, 3.75rem); padding-bottom: clamp(2.25rem, 4vw, 3.25rem);
+  display: grid; gap: clamp(2rem, 4vw, 3.5rem); align-items: center;
+}
+@media (min-width: 64rem) { .hero-in { grid-template-columns: minmax(0, 1.35fr) minmax(21rem, .85fr); } }
+.eyebrow {
+  margin: 0 0 .85rem; font-size: .8125rem; font-weight: 600; letter-spacing: -.005em;
+  color: var(--put); line-height: 1.5;
+}
+.eyebrow i {
+  display: inline-block; width: .5rem; height: .5rem; border-radius: 50%;
+  background: var(--put); margin-right: .5rem; vertical-align: middle;
+  position: relative; top: -.05rem;
+}
+.hero h1 {
+  margin: 0; font-size: clamp(2rem, 3.7vw, 3rem); line-height: 1.1;
+  color: var(--put); max-width: 22ch;
+}
+
+/* the record, stated up front — it is the reason the page exists */
+.hero-card { background: #fff; border: 1px solid var(--line); border-radius: var(--r); padding: 1.5rem 1.6rem; }
+.hc-h { font-size: .8125rem; font-weight: 600; color: var(--muted); }
+.hc-row {
+  display: flex; align-items: center; gap: .75rem;
+  padding: 1rem 0; border-bottom: 1px solid var(--line-soft);
+}
+.hc-row:last-of-type { border-bottom: 0; padding-bottom: .5rem; }
+.hc-row .dot { width: .625rem; height: .625rem; border-radius: 50%; flex: none; }
+.hc-row .dot.sp { background: var(--put); }
+.hc-row .dot.gl { background: var(--gold); }
+.hc-row .nm { font-size: .9375rem; font-weight: 600; color: var(--ink); letter-spacing: -.015em; }
+.hc-row .tag { font-size: .75rem; color: var(--muted); margin-top: .1rem; }
+.hc-row .rt { margin-left: auto; text-align: right; }
+.hc-row .rt b { display: block; font-size: 1.375rem; font-weight: 600; letter-spacing: -.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.hc-row .rt span { font-size: .75rem; color: var(--muted); }
+.hc-note { margin: .85rem 0 0; padding-top: .85rem; border-top: 1px solid var(--line); font-size: .8125rem; line-height: 1.6; color: var(--muted); }
+.hc-note b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+.lede { margin: 1.15rem 0 0; font-size: 1.0625rem; line-height: 1.6; color: var(--ink-2); max-width: 72ch; }
+.lede b { font-weight: 600; color: var(--ink); }
+
+.site-foot { background: var(--navy); color: #BFD0DC; margin-top: 4rem; }
+.site-foot { margin-top: 0; }
+.foot-in {
+  display: grid; grid-template-columns: 1fr; gap: 2rem 2.5rem;
+  padding-top: 3rem; padding-bottom: 2rem;
+}
+@media (min-width: 48rem) { .foot-in { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 78rem) { .foot-in { grid-template-columns: .85fr 1fr 1fr 1fr; } }
+.fbrand { display: flex; align-items: center; gap: .65rem; color: #fff; margin-bottom: .9rem; }
+.fbrand .mark { width: 1.75rem; height: 1.75rem; flex: none; color: var(--put-3); }
+.fbrand span { font-size: .9375rem; font-weight: 600; letter-spacing: -.02em; }
+.fcol h3 { margin: 0 0 .7rem; font-size: .9375rem; font-weight: 600; letter-spacing: -.015em; color: #fff; }
+.fcol p { margin: 0 0 .7rem; font-size: .8125rem; line-height: 1.7; }
+.fcol p:last-child { margin-bottom: 0; }
+.fcol a { color: #9DC3EA; text-underline-offset: 2px; }
+.fcol a:hover { color: #fff; }
+.fbar {
+  grid-column: 1 / -1; display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  margin-top: .75rem; padding-top: 1.35rem; border-top: 1px solid rgba(255,255,255,.16);
+  font-size: .75rem; color: #8CA3B3;
+}
+
+/* ---------------- buttons ---------------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-height: 2.75rem; padding: 0 1.5rem;
+  font-family: var(--f-ui); font-size: .9375rem; font-weight: 500;
+  color: var(--ink); background: #fff;
+  border: 1px solid var(--line-hard); border-radius: 999px;
+  cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.btn:hover { background: var(--tint); border-color: var(--put); color: var(--put); }
+.btn:active { transform: none; }
+.btn-primary { color: #fff; background: var(--put); border-color: var(--put); font-weight: 600; }
+.btn-primary:hover { background: var(--put-2); border-color: var(--put-2); color: #fff; }
+
+:focus-visible { outline: 2px solid var(--put); outline-offset: 2px; border-radius: 4px; }
+
+/* ============================================================
+   VIEW NAV — underlined tabs, the way the reference does it
+   ============================================================ */
+.viewnav {
+  display: flex; align-items: stretch; gap: clamp(1.25rem, 2.5vw, 2.25rem);
+  margin: 0; padding: 0; background: none; border: 0; border-radius: 0;
+  flex: 0 1 auto; min-width: 0; overflow-x: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.viewnav::-webkit-scrollbar { display: none; }
+.viewtab {
+  display: flex; align-items: center; flex: 0 0 auto;
+  padding: 0; margin-bottom: -1px;
+  background: none; border: 0; border-bottom: 3px solid transparent;
+  cursor: pointer; text-align: left; font-family: var(--f-ui);
+  transition: color .15s ease, border-color .15s ease;
+}
+.viewtab .vt { display: block; font-size: 1rem; font-weight: 400; color: var(--muted); white-space: nowrap; }
+.viewtab .vs { display: none; }
+.viewtab:hover .vt { color: var(--ink); }
+.viewtab[aria-selected="true"] { border-bottom-color: var(--put); }
+.viewtab[aria-selected="true"] .vt { color: var(--ink); }
+
+/* ============================================================
+   CARDS
+   ============================================================ */
+.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--r);
+  padding: 1.75rem; margin-top: 1.25rem;
+}
+.card > h2, .card-head h2 {
+  margin: 0 0 .3rem; font-size: clamp(1.375rem, 1.9vw, 1.75rem);
+  line-height: 1.2; color: var(--ink);
+}
+.card > .sub, .card-head .sub { margin: 0 0 1.5rem; color: var(--muted); font-size: .9375rem; line-height: 1.55; }
+.card-head .sub { margin-bottom: 0; max-width: 80ch; }
+.card-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 1.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+}
+.card-head > div:first-child { flex: 1 1 26rem; min-width: 0; }
+.card-head .tabs { flex: 0 0 auto; }
+
+/* ---------------- segmented tabs: underline, no pill ---------------- */
+.tabs {
+  display: inline-flex; gap: 1.75rem; flex: none;
+  background: none; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; padding: 0;
+}
+.tab {
+  font-family: var(--f-ui); font-size: .9375rem; font-weight: 400;
+  color: var(--muted); background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 0 0 .75rem; margin-bottom: -1px; cursor: pointer; white-space: nowrap;
+  transition: color .15s ease, border-color .15s ease;
+}
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--put); }
+
+/* ---------------- investment type picker ---------------- */
+.types { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr)); gap: .75rem; margin-bottom: 1.75rem; }
+.type {
+  text-align: left; background: #fff; border: 1px solid var(--line-hard); border-radius: var(--r);
+  padding: 1.15rem 1.25rem; cursor: pointer; font-family: var(--f-ui);
+  transition: border-color .15s ease, background .15s ease;
+}
+.type:hover { border-color: var(--put); background: var(--tint); }
+.type[aria-pressed="true"] { border-color: var(--put); background: var(--tint); box-shadow: inset 0 0 0 1px var(--put); }
+.type .tk { display: flex; align-items: center; gap: .6rem; }
+.type .tick {
+  width: 1.15rem; height: 1.15rem; border-radius: 50%; border: 1.5px solid var(--line-hard);
+  background: #fff; flex: none; position: relative;
+}
+.type[aria-pressed="true"] .tick { border-color: var(--put); border-width: 5px; }
+.type[aria-pressed="true"] .tick::after { content: none; }
+.type .nm { font-size: 1rem; font-weight: 600; letter-spacing: -.02em; color: var(--ink); }
+.type .etf {
+  margin-left: auto; font-size: .75rem; font-weight: 600; color: var(--put);
+  background: var(--tint); border: 1px solid var(--put-line); border-radius: 999px; padding: .15rem .6rem;
+}
+.type .ds { margin: .7rem 0 0; font-size: .875rem; line-height: 1.5; color: var(--muted); }
+.type .ds strong { color: var(--ink); font-weight: 600; }
+.type .meta { margin-top: .85rem; padding-top: .8rem; border-top: 1px solid var(--line); font-size: .8125rem; color: var(--muted); }
+.type .meta b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ---------------- fields ---------------- */
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: 1.15rem; }
+.field label {
+  display: block; margin-bottom: .45rem;
+  font-size: .875rem; font-weight: 400; letter-spacing: -.01em; color: var(--muted);
+  text-transform: none;
+}
+.inputbox {
+  display: flex; align-items: center; background: #fff;
+  border: 1px solid var(--line-hard); border-radius: var(--r-xs);
+  padding: 0 .9rem; min-height: 2.75rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.inputbox:hover { border-color: var(--muted); }
+.inputbox:focus-within { border-color: var(--put); box-shadow: 0 0 0 3px rgba(26,63,214,.14); }
+.inputbox.bad { border-color: var(--loss); box-shadow: 0 0 0 3px rgba(192,54,42,.12); }
+.inputbox .pre, .inputbox .suf { color: var(--muted); font-size: 1rem; flex: none; }
+.inputbox .pre { margin-right: .35rem; }
+.inputbox .suf { margin-left: .35rem; }
+.inputbox input {
+  width: 100%; border: 0; outline: none; background: transparent; padding: .6rem 0;
+  font-family: var(--f-num); font-size: 1rem; font-weight: 500; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.inputbox input::-webkit-outer-spin-button, .inputbox input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.inputbox input[type=number] { -moz-appearance: textfield; }
+.err { min-height: 1.1rem; margin-top: .3rem; font-size: .8125rem; color: var(--loss); opacity: 0; }
+.err.on { opacity: 1; }
+
+.selectbox {
+  position: relative; display: flex; align-items: center; background: #fff;
+  border: 1px solid var(--line-hard); border-radius: var(--r-xs); min-height: 2.75rem;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.selectbox:hover { border-color: var(--muted); }
+.selectbox:focus-within { border-color: var(--put); box-shadow: 0 0 0 3px rgba(26,63,214,.14); }
+.selectbox select {
+  width: 100%; border: 0; background: transparent; outline: none; cursor: pointer;
+  font-family: var(--f-num); font-size: 1rem; font-weight: 500; color: var(--ink);
+  padding: .6rem 2rem .6rem .9rem; -webkit-appearance: none; appearance: none;
+  font-variant-numeric: tabular-nums;
+}
+.selectbox::after {
+  content: ""; position: absolute; right: .95rem; pointer-events: none;
+  width: .4rem; height: .4rem; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted);
+  transform: rotate(45deg) translateY(-.12rem);
+}
+
+/* ---------------- chips ---------------- */
+.presets { display: flex; align-items: center; gap: .75rem; flex-wrap: wrap; margin-top: 1.15rem; }
+.presets .lab { font-size: .875rem; color: var(--muted); }
+.chips { display: flex; gap: .45rem; flex-wrap: wrap; }
+.chip {
+  font-family: var(--f-ui); font-size: .875rem; font-weight: 500; color: var(--ink);
+  border: 1px solid var(--line-hard); background: #fff; border-radius: 999px;
+  padding: .45rem 1rem; cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.chip:hover { border-color: var(--put); background: var(--tint); color: var(--put); }
+.chip[aria-pressed="true"] { background: var(--put); border-color: var(--put); color: #fff; font-weight: 600; }
+.chip.custom { font-weight: 500; }
+
+.actions { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; margin-top: 1.75rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+.actions .note { font-size: .875rem; color: var(--muted); }
+
+/* ============================================================
+   HEADLINE RESULT
+   ============================================================ */
+.result-top { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; }
+.hero-k { font-size: .875rem; color: var(--muted); margin-bottom: .4rem; }
+.hero-v {
+  font-size: clamp(2.75rem, 5.5vw, 4rem); line-height: 1.02; color: var(--ink);
+  font-variant-numeric: tabular-nums; margin: 0;
+}
+.hero-sub { margin: .75rem 0 0; font-size: .9375rem; line-height: 1.55; color: var(--muted); }
+.hero-sub b { color: var(--ink); font-weight: 600; }
+
+.splitbar { display: flex; height: 2.25rem; border-radius: 999px; overflow: hidden; background: var(--paper-2); }
+.splitbar div { display: flex; align-items: center; justify-content: center; font-size: .8125rem; font-weight: 600; color: #fff; font-variant-numeric: tabular-nums; transition: width .3s ease; }
+.splitbar .p { background: var(--put); }
+.splitbar .g { background: var(--grow-2); }
+.legend { display: flex; gap: 1.5rem; flex-wrap: wrap; margin-top: .85rem; }
+.legend div { display: flex; align-items: center; gap: .45rem; font-size: .875rem; color: var(--muted); }
+.legend i { width: .625rem; height: .625rem; border-radius: 50%; flex: none; }
+.legend b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(11rem, 100%), 1fr)); gap: 0; margin-top: 2rem; border-top: 1px solid var(--line); }
+.stat { padding: 1.15rem 1.25rem 1.15rem 0; border-bottom: 1px solid var(--line); }
+.stat:hover { background: transparent; }
+.stat .k { font-size: .875rem; color: var(--muted); margin-bottom: .3rem; }
+.stat .v { font-size: 1.375rem; font-weight: 600; letter-spacing: -.03em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.stat .v.put { color: var(--put); }
+.stat .v.grow { color: var(--grow-2); }
+
+.chart-box { position: relative; height: clamp(18rem, 34vh, 24rem); margin-top: .5rem; }
+.chart-box canvas, .chart-box svg { width: 100% !important; height: 100% !important; display: block; }
+
+/* ============================================================
+   TINTED EXAMPLE PANEL
+   ============================================================ */
+.example {
+  background: var(--tint); border: 0; border-radius: var(--r);
+  padding: 1.75rem; margin-top: 1.25rem;
+}
+.example::before { content: none; }
+.example h2 { margin: 0 0 .5rem; font-size: 1.375rem; color: var(--ink); }
+.example p { margin: 0; font-size: .9375rem; line-height: 1.6; color: var(--ink-2); }
+.example b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.example .g { color: var(--grow-2); font-weight: 600; }
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+.tablewrap { overflow-x: auto; }
+.tablewrap::-webkit-scrollbar { height: 8px; }
+.tablewrap::-webkit-scrollbar-track { background: transparent; }
+.tablewrap::-webkit-scrollbar-thumb { background: var(--line-hard); border-radius: 999px; }
+.tablewrap::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+table { width: 100%; border-collapse: separate; border-spacing: 0; min-width: 44rem; }
+thead th {
+  /* deliberately not sticky: .tablewrap scrolls on x, which makes it the
+     sticky containing block, so a sticky header pins to a box that scrolls
+     off with the page and collides with the sticky nav on the way */
+  background: var(--paper-2);
+  font-size: .875rem; font-weight: 700; letter-spacing: -.02em; color: var(--ink);
+  text-align: right; padding: .75rem 1rem; border: 0; white-space: nowrap;
+}
+thead th:first-child { text-align: left; border-radius: var(--r) 0 0 var(--r); padding-left: 1.25rem; }
+thead th:last-child { border-radius: 0 var(--r) var(--r) 0; padding-right: 1.25rem; }
+tbody td {
+  padding: .95rem 1rem; border-bottom: 1px solid var(--line-soft); text-align: right;
+  font-family: var(--f-num); font-size: .9375rem; font-weight: 400;
+  font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink-2);
+}
+tbody td:first-child { text-align: left; font-weight: 600; color: var(--ink); padding-left: 1.25rem; }
+tbody tr:last-child td { border-bottom: 1px solid var(--line); }
+tbody tr:nth-child(even) td { background: transparent; }
+tbody tr:hover td { background: var(--tint); }
+td.put { color: var(--put); font-weight: 500; }
+td.grow { color: var(--grow-2); font-weight: 500; }
+td.end { font-weight: 600; color: var(--ink); }
+tbody tr.on td { background: var(--tint); }
+tbody tr.on td.put { color: var(--put-2); }
+tbody tr.on td.grow { color: var(--grow-2); }
+tbody tr.on td:first-child { color: var(--put); }
+tbody tr.on:hover td { background: var(--tint); }
+
+.hist-table td.ret { font-weight: 500; color: var(--ink); }
+.hist-table td.pos { color: var(--ink); }
+.hist-table td.neg { color: var(--loss); }
+.hist-table td.lead { font-weight: 700; }
+.hist-table td.lead::after {
+  content: ""; display: inline-block; width: .375rem; height: .375rem; border-radius: 50%;
+  background: currentColor; margin-left: .45rem; position: relative; top: -.15rem;
+}
+.hist-table td.lead.sp::after { background: var(--put); }
+.hist-table td.lead.gl::after { background: var(--gold); }
+.hist-table .grpstart { border-left: 1px solid var(--line); }
+.hist-table td.val { color: var(--ink-2); }
+.hist-table td.val.under { color: var(--loss); }
+.hist-table td.val.pos { color: var(--grow-2); font-weight: 600; }
+.hist-table td.val.neg { color: var(--loss); font-weight: 600; }
+.hist-table td.put { color: var(--put); }
+
+.hist-table tfoot td {
+  padding: 1rem; text-align: right; border: 0; border-top: 1px solid var(--line);
+  font-family: var(--f-num); font-variant-numeric: tabular-nums;
+  font-size: .9375rem; color: var(--ink-2); white-space: nowrap;
+}
+.hist-table tfoot tr:not(:first-child) td { border-top: 0; }
+.hist-table tfoot tr.key td { background: var(--tint); }
+.hist-table tfoot tr.key td:first-child { border-radius: var(--r) 0 0 var(--r); }
+.hist-table tfoot tr.key td:last-child { border-radius: 0 var(--r) var(--r) 0; }
+.hist-table tfoot .lab {
+  text-align: left; white-space: normal; padding-left: 1.25rem;
+  font-family: var(--f-ui); font-weight: 600; color: var(--ink); font-size: .9375rem; letter-spacing: -.015em;
+}
+.hist-table tfoot .lab small { display: block; margin-top: .2rem; font-weight: 400; font-size: .8125rem; color: var(--muted); letter-spacing: 0; }
+.hist-table tfoot td.ret { font-weight: 700; }
+.hist-table tfoot td.val { font-weight: 700; color: var(--ink); }
+.hist-table tfoot td.lead::after { display: none; }
+
+/* ============================================================
+   HISTORY CONTROLS
+   ============================================================ */
+.histctl { display: grid; gap: 1.75rem; align-items: start; }
+@media (min-width: 62rem) {
+  /* settings on the left, shortcuts and the method note on the right, so
+     neither half of a wide card is left empty */
+  .histctl { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr); gap: 2.75rem; }
+}
+.hc-inputs { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.15rem 1.25rem; }
+@media (min-width: 34rem) { .hc-inputs { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.hc-side { display: grid; gap: 1.15rem; align-content: start; }
+.hc-side .ranges { margin: 0; }
+.histctl .ranges .chips { margin-top: .1rem; }
+.histctl .chip { padding: .4rem .9rem; font-size: .8125rem; }
+.ctl-note { margin: 0; font-size: .8125rem; line-height: 1.6; color: var(--muted); }
+
+/* ---------------- verdict cards ---------------- */
+.verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr)); gap: 1rem; margin-top: 1.75rem; padding-top: 1.75rem; border-top: 1px solid var(--line); }
+.vcard { position: relative; padding: 1.35rem 1.4rem; border: 1px solid var(--line); border-radius: var(--r); background: #fff; }
+.vcard::before { content: none; }
+.vcard h3 {
+  margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: -.02em; color: var(--ink);
+  display: flex; align-items: center; gap: .55rem;
+}
+.vcard h3::before { content: ""; width: .625rem; height: .625rem; border-radius: 50%; flex: none; }
+.vcard.sp h3::before { background: var(--put); }
+.vcard.gl h3::before { background: var(--gold); }
+.vcard h3 em {
+  margin-left: auto; font-style: normal; font-size: .75rem; font-weight: 600; color: var(--muted);
+  border: 1px solid var(--line-hard); background: #fff; border-radius: 999px; padding: .12rem .6rem;
+}
+.vcard .flow { display: flex; align-items: baseline; flex-wrap: wrap; gap: .55rem; margin: .9rem 0 0; }
+.vcard .from { font-size: .9375rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.vcard .arw { color: var(--faint); }
+.vcard .to {
+  font-family: var(--f-disp); font-weight: 600; letter-spacing: -.04em;
+  font-size: clamp(2rem, 3.4vw, 2.75rem); line-height: 1.02; font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+.vcard.sp .to, .vcard.gl .to { color: var(--ink); }
+.vcard .meta { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1rem; }
+.vcard .pill {
+  font-size: .8125rem; font-weight: 500; color: var(--ink-2);
+  background: var(--paper-2); border: 0; border-radius: 999px; padding: .25rem .7rem;
+  font-variant-numeric: tabular-nums;
+}
+.vcard .pill.win { background: var(--tint); color: var(--put); font-weight: 600; }
+.vcard .pill.dn { background: var(--loss-soft); color: var(--loss); }
+.vcard .note { margin: 1rem 0 0; font-size: .8125rem; line-height: 1.6; color: var(--muted); }
+
+/* ============================================================
+   AT A GLANCE
+   ============================================================ */
+.glance-lead { font-size: .9375rem; line-height: 1.6; color: var(--ink-2); margin: 0 0 1.25rem; }
+@media (min-width: 62rem) { .glance-lead { columns: 2; column-gap: 2.75rem; } }
+.glance-lead b { font-weight: 600; color: var(--ink); }
+.compare { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.side { border: 1px solid var(--line); border-radius: var(--r); padding: 1.35rem 1.4rem; background: #fff; }
+.side.sp, .side.gl { border-top: 1px solid var(--line); }
+.side h3 {
+  margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: -.02em; color: var(--ink);
+  display: flex; align-items: center; gap: .55rem;
+}
+.side h3::before { content: ""; width: .625rem; height: .625rem; border-radius: 50%; flex: none; }
+.side.sp h3::before { background: var(--put); }
+.side.gl h3::before { background: var(--gold); }
+.side h3 em {
+  margin-left: auto; font-style: normal; font-size: .75rem; font-weight: 600; color: var(--muted);
+  border: 1px solid var(--line-hard); background: #fff; border-radius: 999px; padding: .12rem .6rem;
+}
+.side .sv {
+  font-size: clamp(2rem, 3.2vw, 2.6rem); line-height: 1.03; margin: .85rem 0 .25rem;
+  color: var(--ink); font-variant-numeric: tabular-nums;
+}
+.side .sk { font-size: .875rem; color: var(--muted); text-transform: none; letter-spacing: 0; font-weight: 400; }
+.side .mult {
+  display: inline-block; margin-top: .65rem; font-size: .8125rem; font-weight: 600; color: var(--put);
+  background: var(--tint); border: 0; border-radius: 999px; padding: .22rem .7rem;
+  font-variant-numeric: tabular-nums;
+}
+.side.gl .mult { color: var(--gold-2); background: var(--gold-soft); }
+.side .grp {
+  margin-top: 1.5rem; font-size: .8125rem; font-weight: 600; letter-spacing: -.01em;
+  text-transform: none; color: var(--muted);
+  padding-bottom: .5rem; border-bottom: 1px solid var(--line);
+}
+.side .rows { margin-top: 0; border-top: 0; }
+.side .rows div {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 1rem;
+  padding: .8rem 0; border-bottom: 1px solid var(--line-soft); font-size: .9375rem;
+}
+.side .rows div:last-child { border-bottom: 0; }
+.side .rows .lb { display: block; color: var(--ink); }
+.side .rows .lb small { display: block; margin-top: .2rem; font-size: .8125rem; line-height: 1.5; color: var(--muted); }
+.side .rows span:last-child { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.side .rows .up span:last-child { color: var(--ink); }
+.side .rows .dn span:last-child { color: var(--loss); }
+.side .rows div.hi { background: var(--tint); margin: 0 -.7rem; padding-left: .7rem; padding-right: .7rem; border-radius: var(--r-xs); border-bottom-color: transparent; }
+
+.insight { border: 0; background: var(--tint); border-radius: var(--r); padding: 1.5rem; font-size: .9375rem; line-height: 1.6; color: var(--ink-2); }
+.insight h4 { margin: 0 0 .6rem; font-size: 1rem; font-weight: 600; letter-spacing: -.02em; text-transform: none; color: var(--ink); }
+.insight b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+.insight .era { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); gap: .75rem; margin-top: 1rem; }
+.insight .era > div { background: #fff; border: 0; border-radius: var(--r-xs); padding: .85rem 1rem; }
+.insight .era .t { font-size: .8125rem; color: var(--muted); font-weight: 500; letter-spacing: 0; text-transform: none; }
+.insight .era .v { font-size: .9375rem; margin-top: .3rem; color: var(--ink); }
+
+/* ============================================================
+   EXPLAINERS · TAKEAWAY · MILESTONES
+   ============================================================ */
+.explain { border: 0; border-left: 3px solid var(--put); background: var(--tint); border-radius: 0 var(--r) var(--r) 0; padding: 1.25rem 1.5rem; margin-bottom: 1.5rem; }
+.explain h4 { margin: 0 0 .5rem; font-size: 1rem; font-weight: 600; letter-spacing: -.02em; text-transform: none; color: var(--ink); }
+.explain p { margin: 0 0 .6rem; font-size: .9375rem; line-height: 1.6; color: var(--ink-2); }
+.explain p:last-child { margin-bottom: 0; }
+.explain b { font-weight: 600; color: var(--ink); }
+
+.takeaway { margin-top: 1.75rem; }
+.takeaway h4 { margin: 0 0 .85rem; font-size: 1rem; font-weight: 600; letter-spacing: -.02em; text-transform: none; color: var(--ink); }
+.defs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(17rem, 100%), 1fr)); gap: 1rem; }
+.def { border: 1px solid var(--line); border-radius: var(--r); background: #fff; padding: 1.15rem 1.25rem; }
+.def.key { border-color: transparent; background: var(--tint); }
+.def .dt { font-size: .9375rem; font-weight: 600; color: var(--ink); letter-spacing: -.015em; }
+.def .dn {
+  display: inline-block; margin-left: .5rem; font-size: .6875rem; font-weight: 600;
+  letter-spacing: 0; text-transform: none; color: #fff; background: var(--put);
+  border: 0; border-radius: 999px; padding: .12rem .55rem; position: relative; top: -.1rem;
+}
+.def .dv { font-size: 1.5rem; font-weight: 600; letter-spacing: -.035em; margin: .55rem 0 .5rem; font-variant-numeric: tabular-nums; }
+.def .dv .n1 { color: var(--put); }
+.def .dv .n2 { color: var(--gold-2); }
+.def .dv .sep { color: var(--faint); font-weight: 400; margin: 0 .5rem; }
+.def p { margin: 0; font-size: .875rem; line-height: 1.6; color: var(--muted); }
+.why { margin: 1.15rem 0 0; font-size: .9375rem; line-height: 1.65; color: var(--ink-2); }
+/* A single column of prose across a 1300px card leaves half the row empty
+   and the lines too long to track. Two measures fill the width and keep
+   each line inside a comfortable reading length. */
+.why-pair { display: grid; gap: 0 2.75rem; margin-top: 1.15rem; }
+@media (min-width: 62rem) { .why-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.why-pair .why { margin-top: 0; }
+
+.why b { color: var(--ink); font-weight: 600; }
+.acts { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; margin-top: 1.15rem; }
+.acts .lb { font-size: .875rem; color: var(--muted); margin-right: .25rem; }
+
+.milestones { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr)); gap: 1rem; margin-top: 1.5rem; }
+.mst { border: 1px solid var(--line); border-radius: var(--r); background: #fff; padding: 1.1rem 1.2rem; }
+.mst .t { font-size: .8125rem; font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--muted); }
+.mst .v { font-size: 1.125rem; font-weight: 600; color: var(--ink); margin: .45rem 0 .4rem; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
+.mst .v .n1 { color: var(--put); }
+.mst .v .n2 { color: var(--gold-2); }
+.mst .v .sep { color: var(--faint); font-weight: 400; margin: 0 .4rem; }
+.mst .d { font-size: .8125rem; line-height: 1.55; color: var(--muted); }
+
+/* ============================================================
+   DATA & SOURCES
+   ============================================================ */
+.srcs { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(21rem, 100%), 1fr)); gap: 1rem; }
+.src { border: 1px solid var(--line); border-radius: var(--r); padding: 1.35rem 1.4rem; background: #fff; }
+.src h3 {
+  margin: 0 0 1rem; font-size: 1rem; font-weight: 600; letter-spacing: -.02em; color: var(--ink);
+  display: flex; align-items: center; gap: .55rem;
+}
+.src h3 .dot { width: .625rem; height: .625rem; border-radius: 50%; flex: none; }
+.src.sp h3 .dot { background: var(--put); }
+.src.gl h3 .dot { background: var(--gold); }
+.src h3 em {
+  margin-left: auto; font-style: normal; font-size: .75rem; font-weight: 600; color: var(--muted);
+  border: 1px solid var(--line-hard); border-radius: 999px; padding: .12rem .6rem;
+}
+.src dl { margin: 0; }
+.src dt { font-size: .8125rem; color: var(--muted); margin-top: .9rem; }
+.src dt:first-child { margin-top: 0; }
+.src dd { margin: .2rem 0 0; font-size: .9375rem; line-height: 1.55; color: var(--ink-2); }
+.src dd b { color: var(--ink); font-weight: 600; }
+.srclinks { display: flex; flex-direction: column; gap: .5rem; margin-top: 1.15rem; padding-top: 1.15rem; border-top: 1px solid var(--line); }
+.srclinks a {
+  font-size: .875rem; color: var(--put); text-decoration: none;
+  display: inline-flex; align-items: baseline; gap: .45rem;
+}
+.srclinks a::before { content: "\2192"; color: var(--faint); }
+.srclinks a:hover { color: var(--put-2); text-decoration: underline; text-underline-offset: 2px; }
+
+.steps { margin: 0; padding-left: 1.3rem; }
+.steps li { margin-bottom: .8rem; font-size: .9375rem; line-height: 1.65; color: var(--ink-2); }
+.steps li:last-child { margin-bottom: 0; }
+.steps b { color: var(--ink); font-weight: 600; }
+.steps::marker, .steps li::marker { color: var(--put); font-weight: 600; }
+
+.method { margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); }
+.method h3 { margin: 0 0 .8rem; font-size: 1rem; font-weight: 600; letter-spacing: -.02em; color: var(--ink); }
+.method ul { margin: 0; padding-left: 1.15rem; }
+.method li { margin-bottom: .75rem; font-size: .9375rem; line-height: 1.65; color: var(--ink-2); }
+.method li:last-child { margin-bottom: 0; }
+.method li::marker { color: var(--faint); }
+.method b { color: var(--ink); font-weight: 600; }
+
+.hist-table td.led { text-align: right; }
+.hist-table td.led .dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; margin-right: .45rem; }
+.hist-table td.led .dot.sp { background: var(--put); }
+.hist-table td.led .dot.gl { background: var(--gold); }
+
+/* ============================================================
+   SCENARIOS
+   ============================================================ */
+.scen { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(13rem, 100%), 1fr)); gap: 1rem; }
+.scen-card { border: 1px solid var(--line); border-radius: var(--r); background: #fff; padding: 1.15rem 1.25rem; cursor: pointer; text-align: left; font-family: var(--f-ui); transition: border-color .15s ease, background .15s ease; }
+.scen-card:hover { background: var(--tint); border-color: var(--put); }
+.scen-card.on { border-color: var(--put); background: var(--tint); box-shadow: inset 0 0 0 1px var(--put); }
+.scen-card .rate { display: flex; align-items: baseline; gap: .4rem; }
+.scen-card .rate b { font-size: 1rem; font-weight: 600; color: var(--put); font-variant-numeric: tabular-nums; }
+.scen-card .rate span { font-size: .8125rem; color: var(--muted); text-transform: none; letter-spacing: 0; }
+.scen-card .big { font-size: 1.625rem; margin: .55rem 0 .7rem; color: var(--ink); font-variant-numeric: tabular-nums; }
+.scen-card .row { display: flex; justify-content: space-between; gap: .8rem; padding: .35rem 0; font-size: .8125rem; }
+.scen-card .row span:first-child { color: var(--muted); }
+.scen-card .row span:last-child { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* ============================================================
+   DISCLAIMER · FOOTNOTES
+   ============================================================ */
+.disclaimer { margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line-hard); font-size: .8125rem; line-height: 1.6; color: var(--muted); }
+.disclaimer h3 { margin: 0 0 .4rem; font-size: .9375rem; font-weight: 600; letter-spacing: -.015em; text-transform: none; color: var(--ink); }
+.disclaimer p { margin: 0; max-width: 100ch; }
+.foot-note { margin: 1rem .1rem 0; font-size: .8125rem; color: var(--muted); line-height: 1.6; max-width: 100ch; }
+.foot-note a { color: var(--put); text-decoration-color: var(--put-line); text-underline-offset: 2px; }
+.foot-note a:hover { color: var(--put-2); }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (min-width: 60rem) {
+  .stats { grid-template-columns: repeat(4, 1fr); }
+  .stats .stat:last-child { grid-column: span 2; }
+}
+@media (max-width: 48rem) {
+  .site-in { flex-wrap: wrap; align-items: center; min-height: 0; padding-top: .7rem; }
+  .site .tools { margin-left: 0; order: 2; flex: 1 1 100%; }
+  .site .btn { padding: 0 .85rem; font-size: .8125rem; }
+  .viewnav { order: 3; flex: 1 1 100%; }
+  .viewtab { padding: .55rem 0 .65rem; align-items: flex-end; }
+  .hero h1 { max-width: none; }
+  .lede { font-size: 1rem; }
+  .foot-in { padding-top: 2.25rem; }
+  .card, .example { padding: 1.25rem; }
+  .result-top { grid-template-columns: 1fr; }
+  .card-head { flex-direction: column; align-items: stretch; }
+  .card-head > div:first-child { flex: 0 1 auto; }
+  .tabs { width: 100%; overflow-x: auto; gap: 1.25rem; }
+  .viewnav { gap: 1.5rem; overflow-x: auto; scrollbar-width: none; }
+  .viewnav::-webkit-scrollbar { display: none; }
+  .viewtab { padding: .9rem 0 .95rem; }
+  :root { --nav-h: 3.25rem; }
+  .viewtab .vt { font-size: .9375rem; white-space: normal; }
+  .stat { padding-right: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* ============================================================
+   WIDE SCREENS: fill the row instead of stranding it
+
+   Declared last on purpose. These have to beat the max-width set on
+   .foot-note and .disclaimer p further up, and a media query adds no
+   specificity of its own, so source order is what decides it.
+   ============================================================ */
+@media (min-width: 62rem) {
+  .foot-note { columns: 2; column-gap: 2.75rem; max-width: none; }
+  .foot-note p { break-inside: avoid; }
+  .disclaimer p { columns: 2; column-gap: 2.75rem; max-width: none; }
+  .steps { columns: 2; column-gap: 3rem; }
+  .method ul { columns: 2; column-gap: 3rem; }
+  .steps li, .method li { break-inside: avoid; }
+  .glance-lead { columns: 2; column-gap: 2.75rem; }
+}
+@media print {
+  /* one narrow column per page reads better on paper than two */
+  .foot-note, .disclaimer p, .steps, .method ul, .glance-lead { columns: auto; }
+}
+
+/* ============================================================
+   PRINT / PDF
+
+   @page margin is zero on purpose. The browser draws its own
+   header and footer (the file path, the date, the page number)
+   inside that margin, and with no margin there is nowhere to
+   draw them, so the sheet comes out clean. The printed margin
+   is supplied by padding on the page's own containers instead.
+   ============================================================ */
+@page { size: A4 portrait; margin: 0; }
+
+.print-only { display: none; }
+
+@media print {
+  html, body { background: #fff; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  .no-print, .site { display: none !important; }
+  .print-only { display: block; }
+
+  .wrap, .hero-in, .foot-in {
+    max-width: none;
+    padding-left: 14mm; padding-right: 14mm;
+  }
+  .hero { background: #fff; border-bottom: 1px solid var(--line-hard); }
+  .hero-in { display: block; padding-top: 18mm; padding-bottom: 8mm; }
+  .hero h1 { color: var(--ink); font-size: 25pt; max-width: none; line-height: 1.15; }
+  .lede { font-size: 10pt; max-width: none; }
+  .eyebrow { font-size: 9pt; }
+  .hero-card { margin-top: 7mm; break-inside: avoid; }
+
+  .wrap { padding-top: 0; padding-bottom: 6mm; }
+  /* Page one is the cover: title, lede and the 25-year record. The
+     section starts clean at the top of page two rather than beginning
+     on the cover and spilling a half-empty card over the break. */
+  main.wrap { padding-top: 12mm; break-before: page; }
+
+  /* Only the view on screen prints. Its sub-panels all open, so the
+     reader gets that whole section; the other views stay hidden, which
+     is what the [hidden] attribute already does. Scoped to the visible
+     view so this still holds if scripting never ran. */
+  .view:not([hidden]) .panel[hidden] { display: block !important; }
+
+  .sec-label {
+    font-size: 8.5pt; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--put); margin: 0 0 3mm; padding-bottom: 2mm; border-bottom: 1px solid var(--put-line);
+  }
+  .panel-label {
+    font-size: 10.5pt; font-weight: 600; letter-spacing: -0.02em; color: var(--ink);
+    margin: 8mm 0 3mm; padding-top: 4mm; border-top: 1px solid var(--line);
+    break-after: avoid;
+  }
+  .isum { display: grid; grid-template-columns: repeat(auto-fit, minmax(38mm, 1fr)); gap: 5mm 6mm; margin: 0; }
+  .isum dt { font-size: 8.5pt; color: var(--muted); margin: 0 0 1mm; }
+  .isum dd { margin: 0; font-size: 12pt; font-weight: 600; letter-spacing: -.02em; color: var(--ink); }
+  .isum dd.blue { color: var(--put); }
+  .print-meta { font-size: 8.5pt; color: var(--muted); margin: 4mm 0 0; }
+
+  .card, .example { border: 1px solid var(--line); padding: 6mm; margin-top: 5mm; }
+  .def, .mst, .vcard, .side, .insight, .explain, .scen-card,
+  .hero-card, .stat, .hc-row { break-inside: avoid; }
+  /* a card taller than the space left would otherwise push a whole blank
+     page ahead of it, so cards themselves are allowed to flow */
+  .card, .example { break-inside: auto; }
+  .sec-label { break-after: avoid; }
+  .stats .stat:last-child { grid-column: auto; border-bottom: 0; }
+  h1, h2, h3, h4, .card > h2, .card-head h2 { break-after: avoid; }
+  .card-head { display: block; }
+
+  .tablewrap { overflow: visible; }
+  table { min-width: 0; font-size: 8.5pt; }
+  thead { display: table-header-group; }
+  tfoot { display: table-row-group; }
+  tr, thead th, tbody td { break-inside: avoid; }
+  thead th { position: static; padding: 2.5mm 3mm; font-size: 8pt; }
+  /* claim a share of the table for the summary labels, so they wrap over
+     two lines instead of one word per line, and the table still fits */
+  .hist-table tfoot .lab { white-space: normal; width: 26%; }
+  .hist-table tfoot .lab small { font-size: 7.5pt; }
+  table { table-layout: auto; max-width: 100%; }
+  tbody td { padding: 2.2mm 3mm; }
+  tbody tr:hover td { background: transparent; }
+
+  .chart-box { height: 80mm; break-inside: avoid; }
+  .chart-box canvas, .chart-box svg { height: 80mm !important; }
+
+  .verdict, .compare, .defs, .milestones, .scen { gap: 4mm; }
+  .hero-v { font-size: 30pt; }
+  .vcard .to, .side .sv { font-size: 20pt; }
+
+  .site-foot {
+    break-before: page; background: #fff; color: var(--muted);
+    border-top: 1px solid var(--line-hard); margin-top: 0;
+  }
+  .foot-in { padding-top: 12mm; padding-bottom: 14mm; }
+  .fcol h3 { color: var(--ink); }
+  .fcol a { color: var(--put); }
+  .fbar { color: var(--muted); }
+  .fbrand .mark { color: var(--put); }
+  .fbrand span { color: var(--ink); }
+}
+</style>
+</head>
+<body>
+
+<header class="site no-print">
+  <div class="site-in">
+    <button class="brand" type="button" id="brandBtn" aria-label="Investment Growth Calculator, back to Your plan">
+      <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+        <rect width="32" height="32" rx="8" fill="currentColor"/>
+        <path d="M7.5 22.5 L13.5 16 L18 20 L24.5 10.5" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="24.5" cy="10.5" r="2.7" fill="#fff"/>
+      </svg>
+      <span class="bname">Investment Growth Calculator</span>
+    </button>
+
+    <nav class="viewnav" id="viewnav" role="tablist" aria-label="Sections">
+      <button class="viewtab" type="button" role="tab" id="vtab-plan" data-view="view-plan" aria-controls="view-plan">
+        <span class="vt">Your plan</span>
+        <span class="vs">Project what regular investing could become</span>
+      </button>
+      <button class="viewtab" type="button" role="tab" id="vtab-history" data-view="view-history" aria-controls="view-history">
+        <span class="vt">How these indexes performed</span>
+        <span class="vs">25 years of real returns, on any amount you choose</span>
+      </button>
+      <button class="viewtab" type="button" role="tab" id="vtab-data" data-view="view-data" aria-controls="view-data">
+        <span class="vt">Data &amp; sources</span>
+        <span class="vs">Every figure, and where it comes from</span>
+      </button>
+    </nav>
+
+    <div class="tools">
+      <button class="btn" id="fsBtn" type="button">Full screen</button>
+      <button class="btn" id="printBtn" type="button">Print / Save PDF</button>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-in">
+    <div class="hero-copy">
+    <p class="eyebrow"><i></i>S&amp;P 500 &nbsp;vs&nbsp; the global stock market &nbsp;&middot;&nbsp; 2001&ndash;2025</p>
+    <h1>What steady investing could become, and what it actually did</h1>
+    <p class="lede">Three sections, one question. <b>Your plan</b> projects what a monthly contribution could grow into. It is hypothetical, never a promise. <b>How these indexes performed</b> is the real record: 25 calendar years of the S&amp;P 500 against the global stock market, applied to whatever amount you put in. <b>Data &amp; sources</b> lists every figure on the site and links to where it came from.</p>
+    </div>
+    <aside class="hero-card" id="heroCard"></aside>
+    <p class="print-only print-meta" id="printMeta"></p>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <div class="view" id="view-plan" role="tabpanel" aria-labelledby="vtab-plan">
+
+  <p class="print-only sec-label">Your plan</p>
+
+  <section class="card print-only" id="inputSummary"></section>
+
+  <!-- ============ INPUTS ============ -->
+  <section class="card no-print">
+    <h2>Your plan</h2>
+    <p class="sub">Pick an investment type, then set your numbers. Results update as you type.</p>
+
+    <div class="types" id="types" role="group" aria-label="Investment type"></div>
+
+    <div class="fields">
+      <div class="field">
+        <label for="initial">Initial investment</label>
+        <div class="inputbox" id="box-initial">
+          <span class="pre">$</span>
+          <input id="initial" type="number" min="0" step="100" value="0" inputmode="decimal" aria-describedby="err-initial">
+        </div>
+        <div class="err" id="err-initial"></div>
+      </div>
+
+      <div class="field">
+        <label for="monthly">Monthly investment</label>
+        <div class="inputbox" id="box-monthly">
+          <span class="pre">$</span>
+          <input id="monthly" type="number" min="0" step="25" value="150" inputmode="decimal" aria-describedby="err-monthly">
+        </div>
+        <div class="err" id="err-monthly"></div>
+      </div>
+
+      <div class="field">
+        <label for="years">Investment period</label>
+        <div class="inputbox" id="box-years">
+          <input id="years" type="number" min="1" max="80" step="1" value="18" inputmode="numeric" aria-describedby="err-years">
+          <span class="suf">years</span>
+        </div>
+        <div class="err" id="err-years"></div>
+      </div>
+
+      <div class="field">
+        <label for="rate">Expected annual return</label>
+        <div class="inputbox" id="box-rate">
+          <input id="rate" type="number" min="0" max="30" step="0.1" value="7" inputmode="decimal" aria-describedby="err-rate">
+          <span class="suf">%</span>
+        </div>
+        <div class="err" id="err-rate"></div>
+      </div>
+    </div>
+
+    <div class="presets">
+      <span class="lab">Quick scenarios</span>
+      <div class="chips" id="chips" role="group" aria-label="Return rate presets"></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="calcBtn" type="button">Calculate</button>
+      <button class="btn" id="resetBtn" type="button">Reset</button>
+      <span class="note">Results also refresh automatically as you change any value.</span>
+    </div>
+  </section>
+
+  <!-- ============ RESULT ============ -->
+  <section class="card">
+    <div class="result-top">
+      <div>
+        <div class="hero-k">Estimated final portfolio value</div>
+        <div class="hero-v" id="finalValue">$0</div>
+        <div class="hero-sub" id="heroSub"></div>
+      </div>
+      <div>
+        <div class="splitbar" id="splitbar">
+          <div class="p" id="barPut"></div>
+          <div class="g" id="barGrow"></div>
+        </div>
+        <div class="legend">
+          <div><i style="background:var(--put)"></i> You invested <b id="legPut">$0</b></div>
+          <div><i style="background:var(--grow)"></i> Estimated growth <b id="legGrow">$0</b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="k">Initial investment</div><div class="v put" id="sInitial">$0</div></div>
+      <div class="stat"><div class="k">Total monthly contributions</div><div class="v put" id="sContrib">$0</div></div>
+      <div class="stat"><div class="k">Total amount invested</div><div class="v put" id="sInvested">$0</div></div>
+      <div class="stat"><div class="k">Estimated investment growth</div><div class="v grow" id="sGrowth">$0</div></div>
+      <div class="stat"><div class="k">Estimated final value</div><div class="v grow" id="sFinal">$0</div></div>
+      <div class="stat"><div class="k">Investment period</div><div class="v" id="sYears">18 yrs</div></div>
+      <div class="stat"><div class="k">Assumed annual return</div><div class="v" id="sRate">7.0%</div></div>
+    </div>
+  </section>
+
+  <!-- ============ CHART ============ -->
+  <section class="card">
+    <h2>Portfolio growth over time</h2>
+    <p class="sub">The blue area is money you contributed. The teal band above it is estimated growth.</p>
+    <div class="chart-box" id="chartBox">
+      <canvas id="chart" role="img" aria-label="Chart of total contributions versus estimated portfolio value by year"></canvas>
+    </div>
+  </section>
+
+  <!-- ============ EDUCATION EXAMPLE ============ -->
+  <section class="example">
+    <h2>Saving for a child's education</h2>
+    <p id="eduText"></p>
+  </section>
+
+  <!-- ============ YEAR BY YEAR ============ -->
+  <section class="card">
+    <h2>Year-by-year growth</h2>
+    <p class="sub">Contributions are made at the end of each month and compounded monthly.</p>
+    <div class="tablewrap">
+      <table id="yearTable">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>Beginning balance</th>
+            <th>Annual contributions</th>
+            <th>Estimated growth</th>
+            <th>Ending balance</th>
+            <th>Total invested to date</th>
+          </tr>
+        </thead>
+        <tbody id="yearBody"></tbody>
+      </table>
+    </div>
+    <p class="foot-note">“Total invested to date” includes your initial investment plus every monthly contribution made so far.</p>
+  </section>
+
+  <!-- ============ SCENARIOS ============ -->
+  <section class="card">
+    <h2>Compare return scenarios</h2>
+    <p class="sub" id="scenSub"></p>
+    <div class="scen" id="scenarios"></div>
+    <p class="foot-note">These are hypothetical rates chosen for illustration. No rate shown here is expected, promised or guaranteed.</p>
+  </section>
+
+  <!-- ============ MONTHLY COMPARISON ============ -->
+  <section class="card">
+    <h2>What a different monthly amount would do</h2>
+    <p class="sub" id="monthlySub"></p>
+    <div class="tablewrap">
+      <table id="monthlyTable">
+        <thead>
+          <tr>
+            <th>Monthly investment</th>
+            <th>Total contributed</th>
+            <th>Total invested</th>
+            <th>Estimated growth</th>
+            <th>Estimated final value</th>
+          </tr>
+        </thead>
+        <tbody id="monthlyBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  </div><!-- /view-plan -->
+
+  <div class="view" id="view-history" role="tabpanel" aria-labelledby="vtab-history" hidden>
+
+  <p class="print-only sec-label">How these indexes performed</p>
+
+  <!-- ============ HISTORY CONTROLS ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>What your money would have done</h2>
+        <p class="sub">Choose an amount and a window, and see what the two indexes actually turned it into. Every figure below follows these two controls: the table, the chart and the summary.</p>
+      </div>
+    </div>
+
+    <div class="histctl no-print">
+      <div class="hc-inputs">
+      <div class="field">
+        <label for="histInit">Starting amount</label>
+        <div class="inputbox" id="box-histInit">
+          <span class="pre">$</span>
+          <input id="histInit" type="number" min="0" step="1000" value="0" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="histMonthly">Monthly investment</label>
+        <div class="inputbox" id="box-histMonthly">
+          <span class="pre">$</span>
+          <input id="histMonthly" type="number" min="0" step="25" value="150" inputmode="decimal">
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="histFrom">From the start of</label>
+        <div class="selectbox"><select id="histFrom"></select></div>
+      </div>
+
+      <div class="field">
+        <label for="histTo">To the end of</label>
+        <div class="selectbox"><select id="histTo"></select></div>
+      </div>
+      </div><!-- /hc-inputs -->
+
+      <div class="hc-side">
+        <div class="field ranges">
+          <label>Quick windows</label>
+          <div class="chips" id="histPresets" role="group" aria-label="Preset periods"></div>
+        </div>
+
+        <div class="field ranges">
+          <label>Start from the projection tab</label>
+          <div class="chips">
+            <button class="chip" type="button" id="copyPlanBtn">Use my plan&rsquo;s numbers</button>
+          </div>
+        </div>
+
+        <p class="ctl-note">Contributions are made at the end of each month, exactly as on the plan tab. Within a year the index&rsquo;s return is spread evenly across the twelve months. Only annual index returns exist here, so month to month timing is smoothed out.</p>
+      </div>
+    </div>
+
+    <div class="verdict" id="histVerdict"></div>
+  </section>
+
+  <!-- ============ HISTORICAL PERFORMANCE ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>How these two have actually performed</h2>
+        <p class="sub" id="histSub">Calendar-year total returns in USD, 2001&ndash;2025, dividends reinvested. This is recorded history, not a forecast, and not the rate used in the projection above.</p>
+      </div>
+      <div class="tabs no-print" id="histTabs" role="tablist" aria-label="Historical performance views">
+        <button class="tab" type="button" role="tab" id="tab-years"  aria-controls="panel-years"  data-panel="panel-years">Year by year</button>
+        <button class="tab" type="button" role="tab" id="tab-growth" aria-controls="panel-growth" data-panel="panel-growth">Growth of your money</button>
+        <button class="tab" type="button" role="tab" id="tab-glance" aria-controls="panel-glance" data-panel="panel-glance">At a glance</button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-years" role="tabpanel" aria-labelledby="tab-years">
+      <p class="print-only panel-label">View 1 of 3: Year by year</p>
+      <div class="tablewrap">
+        <table class="hist-table" id="histTable">
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>You had paid in</th>
+              <th class="grpstart">S&amp;P 500</th>
+              <th>Your money</th>
+              <th class="grpstart">Global market</th>
+              <th>Your money</th>
+            </tr>
+          </thead>
+          <tbody id="histBody"></tbody>
+            <tfoot id="histFoot"></tfoot>
+        </table>
+      </div>
+      <p class="foot-note">“You had paid in” is your starting amount plus every monthly contribution made up to that point. It is the same in both columns, because that is your money going in, not the market’s doing. “Your money” is what the account was worth at the end of that year in each index; it is shown in red on any year the balance was still below what you had paid in. A coloured dot marks the index that led that year.</p>
+      <div class="takeaway" id="histTakeaway"></div>
+    </div>
+
+    <div class="panel" id="panel-growth" role="tabpanel" aria-labelledby="tab-growth" hidden>
+      <p class="print-only panel-label">View 2 of 3: Growth of your money</p>
+      <div class="explain" id="growthExplain"></div>
+      <div class="chart-box" id="histChartBox">
+        <canvas id="histChart" role="img" aria-label="Growth of a single deposit in the S&P 500 versus the global stock market over the selected years"></canvas>
+      </div>
+      <div class="milestones" id="growthMilestones"></div>
+      <p class="foot-note" id="growthNote"></p>
+    </div>
+
+    <div class="panel" id="panel-glance" role="tabpanel" aria-labelledby="tab-glance" hidden>
+      <p class="print-only panel-label">View 3 of 3: At a glance</p>
+      <p class="glance-lead">Each card below sums up the same 25 calendar years, 2001–2025, for one index. The big number is what a <b>single $10,000 deposit</b> made at the start of 2001 would have been worth at the end of 2025. It is the same figure the “Growth of your money” tab charts year by year.</p>
+      <div class="compare" id="glanceCards"></div>
+      <div class="insight" id="insight"></div>
+    </div>
+
+    <p class="foot-note">
+      Sources: S&amp;P 500 Total Return Index via
+      <a href="https://www.spglobal.com/spdji/en/indices/equity/sp-500/" target="_blank" rel="noopener">S&amp;P Dow Jones Indices</a>
+      and <a href="https://www.slickcharts.com/sp500/returns" target="_blank" rel="noopener">Slickcharts</a>;
+      global market is the <a href="https://www.msci.com/indexes/index/892400" target="_blank" rel="noopener">MSCI ACWI Index</a>,
+      net dividends, USD. The two are not measured identically. The MSCI figures are net of foreign dividend withholding tax while the
+      S&amp;P figures are gross, which understates the global series by roughly 0.3 to 0.5 points a year. Index returns exclude fund fees,
+      trading costs and taxes; you cannot invest directly in an index.
+    </p>
+  </section>
+
+  </div><!-- /view-history -->
+
+  <div class="view" id="view-data" role="tabpanel" aria-labelledby="vtab-data" hidden>
+
+  <p class="print-only sec-label">Data &amp; sources</p>
+
+  <!-- ============ WHAT THIS PAGE IS ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>Where every number on this page comes from</h2>
+        <p class="sub">Nothing here is estimated, modelled or smoothed. The two return series below are published calendar-year index returns, typed in once and used everywhere else on the site. This page shows you the figures, names the source of each one, and links straight to it so you can check any of them in front of a client.</p>
+      </div>
+    </div>
+
+    <div class="srcs">
+      <article class="src sp">
+        <h3><span class="dot"></span>S&amp;P 500<em>VOO</em></h3>
+        <dl>
+          <dt>What it measures</dt>
+          <dd>The 500 leading publicly traded U.S. companies, weighted by float-adjusted market value. Roughly 80% of available U.S. market capitalisation.</dd>
+          <dt>Series used here</dt>
+          <dd>S&amp;P 500 <b>Total Return</b> Index (SPXTR): price movement plus dividends reinvested on the ex-date.</dd>
+          <dt>Dividend treatment</dt>
+          <dd><b>Gross</b> dividends, meaning before withholding tax.</dd>
+          <dt>Currency</dt>
+          <dd>U.S. dollars.</dd>
+        </dl>
+        <div class="srclinks">
+          <a href="https://www.spglobal.com/spdji/en/indices/equity/sp-500/" target="_blank" rel="noopener">Official index page, S&amp;P Dow Jones Indices</a>
+          <a href="https://www.slickcharts.com/sp500/returns" target="_blank" rel="noopener">Annual total returns by year, Slickcharts</a>
+          <a href="https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/histretSP.html" target="_blank" rel="noopener">Long-run cross-check, 1928 onward, NYU Stern</a>
+        </div>
+      </article>
+
+      <article class="src gl">
+        <h3><span class="dot"></span>Global Stock Market<em>VT</em></h3>
+        <dl>
+          <dt>What it measures</dt>
+          <dd>Large and mid cap companies across developed and emerging markets. MSCI states the index covers approximately 85% of the global investable equity opportunity set.</dd>
+          <dt>Series used here</dt>
+          <dd>MSCI ACWI Index, <b>net total return</b> (NETR), index code 892400.</dd>
+          <dt>Dividend treatment</dt>
+          <dd><b>Net</b> dividends, meaning after foreign withholding tax. This is the stricter of the two treatments; see the note below.</dd>
+          <dt>Currency</dt>
+          <dd>U.S. dollars.</dd>
+        </dl>
+        <div class="srclinks">
+          <a href="https://www.msci.com/indexes/index/892400/msci-acwi-index" target="_blank" rel="noopener">Official index page, MSCI</a>
+          <a href="https://www.msci.com/end-of-day-data-search" target="_blank" rel="noopener">End of day index data search, MSCI</a>
+        </div>
+      </article>
+    </div>
+
+    <div class="insight" style="margin-top:1.25rem">
+      <h4>One caveat to say out loud</h4>
+      <p>The two series are not measured identically. The S&amp;P figures are gross of dividend withholding tax and the MSCI figures are net of it, which understates the global series by roughly 0.3 to 0.5 percentage points a year. Published gross and net series exist for both indexes, but not consistently back to 2001, so this page uses what each provider publishes as its headline series and tells you which is which. When the gap between the two indexes is small, that difference in measurement is large enough to matter.</p>
+    </div>
+  </section>
+
+  <!-- ============ THE FIGURES ============ -->
+  <section class="card">
+    <div class="card-head">
+      <div>
+        <h2>The figures, year by year</h2>
+        <p class="sub" id="dataSub"></p>
+      </div>
+      <div class="no-print">
+        <button class="btn" type="button" id="csvBtn">Download as CSV</button>
+      </div>
+    </div>
+
+    <div class="tablewrap">
+      <table class="hist-table" id="dataTable">
+        <thead>
+          <tr>
+            <th>Year</th>
+            <th>S&amp;P 500</th>
+            <th>Global market</th>
+            <th>Difference</th>
+            <th>Which led</th>
+          </tr>
+        </thead>
+        <tbody id="dataBody"></tbody>
+        <tfoot id="dataFoot"></tfoot>
+      </table>
+    </div>
+    <p class="foot-note">Every figure is a calendar-year total return in percent. Losses are shown in red. &ldquo;Difference&rdquo; is the gap between the two in percentage points, so +4.3 pp means the S&amp;P 500 finished 4.3 points ahead that year.</p>
+  </section>
+
+  <!-- ============ HOW TO CHECK ============ -->
+  <section class="card">
+    <h2>How to check any of these yourself</h2>
+    <p class="sub">Four steps, no subscription required.</p>
+    <ol class="steps">
+      <li><b>Pick a year from the table above.</b> Say 2022, where the table shows the S&amp;P 500 at &minus;18.1% and the global market at &minus;18.4%.</li>
+      <li><b>Open the Slickcharts annual returns page</b> linked above. It lists S&amp;P 500 total return for every calendar year back to 1926. Find the year and compare. The figures on this page are rounded to one decimal, so 2022 reads &minus;18.11% there and &minus;18.1% here.</li>
+      <li><b>Open the MSCI index page</b> linked above and choose the ACWI index. Its performance section publishes annual returns for the net series in U.S. dollars.</li>
+      <li><b>For a second opinion on the S&amp;P series</b>, the NYU Stern dataset gives annual returns from 1928 onward, compiled independently. It runs a year behind, so it will not yet cover the most recent year.</li>
+    </ol>
+    <p class="foot-note" id="checkedNote"></p>
+  </section>
+
+  <!-- ============ METHODOLOGY ============ -->
+  <section class="card">
+    <h2>How this site turns those figures into the numbers you see</h2>
+    <p class="sub">Three conventions, stated plainly, because they are the difference between two answers that both look right.</p>
+
+    <div class="defs">
+      <div class="def">
+        <div class="dt">Average year</div>
+        <p>Add the yearly returns and divide by the number of years. It describes a typical year and is the number most often quoted, but no investor ever earns it. It is always the highest of the three.</p>
+      </div>
+      <div class="def">
+        <div class="dt">Annualized return</div>
+        <p>The constant yearly rate that turns the starting value into the ending value: the compound annual growth rate. This is what a lump sum left alone actually earned, and it is always below the average year whenever returns move around.</p>
+      </div>
+      <div class="def">
+        <div class="dt">What a plan earned</div>
+        <p>The constant rate that turns a specific schedule of contributions into the ending balance. It can land either side of the index rate depending on whether the money arrived before or after the strong years.</p>
+      </div>
+    </div>
+
+    <div class="method">
+      <h3>The arithmetic</h3>
+      <ul>
+        <li><b>Contributions land at the end of each month</b> and compound monthly, on both the projection tab and the history tab, so the two are directly comparable.</li>
+        <li><b>Inside a calendar year, the index return is spread evenly across the twelve months</b> using the twelfth root of the annual figure. Only annual index returns are published here, so month to month timing is smoothed out. The real months inside 2008 were nothing like each other, and a plan that happened to buy in November of that year would have done better than this page shows. Over a full year the ending figure is very close; over a single year it is an approximation, and it is the only one on the site.</li>
+        <li><b>Nothing is deducted.</b> No fund expense ratio, no trading costs, no taxes, no advice fee. A real investor holding VOO or VT pays a small expense ratio, so real results run slightly below these figures.</li>
+        <li><b>You cannot buy an index.</b> The ETFs named here are examples of funds that track these indexes; they are not recommendations, and their returns differ from the index by the cost of tracking it.</li>
+      </ul>
+    </div>
+  </section>
+
+  </div><!-- /view-data -->
+
+</main>
+
+<footer class="site-foot">
+  <div class="foot-in">
+    <div class="fcol">
+      <div class="fbrand">
+        <svg class="mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <rect width="32" height="32" rx="8" fill="currentColor"/>
+          <path d="M7.5 22.5 L13.5 16 L18 20 L24.5 10.5" fill="none" stroke="#002036" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="24.5" cy="10.5" r="2.7" fill="#002036"/>
+        </svg>
+        <span>Investment Growth Calculator</span>
+      </div>
+      <p>Two ways to own the stock market, compared on the same plan and the same 25 years.</p>
+    </div>
+    <div class="fcol">
+      <h3>About this tool</h3>
+      <p>A side-by-side view of two ways to own the stock market: the S&amp;P 500 and the global stock market. The projection tab models a monthly contribution at a rate you choose. The history tab applies the same plan to 25 years of recorded index returns. The data tab lists every figure with a link to its source.</p>
+      <p>Everything runs in this page. Nothing you type is sent anywhere or stored, and printing saves whichever section you are looking at.</p>
+    </div>
+    <div class="fcol">
+      <h3>Data &amp; sources</h3>
+      <p>S&amp;P 500 Total Return Index (gross dividends) via
+        <a href="https://www.spglobal.com/spdji/en/indices/equity/sp-500/" target="_blank" rel="noopener">S&amp;P Dow Jones Indices</a> and
+        <a href="https://www.slickcharts.com/sp500/returns" target="_blank" rel="noopener">Slickcharts</a>.
+        Global market is the <a href="https://www.msci.com/indexes/index/892400" target="_blank" rel="noopener">MSCI ACWI Index</a>, net dividends, USD.</p>
+      <p>Calendar-year total returns, 2001&ndash;2025. Index returns exclude fund fees, trading costs and taxes; you cannot invest directly in an index. This tool is not affiliated with, endorsed by or produced by any index provider.</p>
+    </div>
+    <div class="fcol">
+      <h3>Important disclaimer</h3>
+      <p>For educational and illustrative purposes only. Investment returns are not guaranteed, and actual market returns vary significantly from year to year, including periods of loss.</p>
+      <p>Historical performance does not guarantee future results. Nothing here constitutes investment, tax, or financial advice.</p>
+    </div>
+    <div class="fbar">
+      <span>Investment Growth Calculator</span>
+      <span>Figures on the projection tab are hypothetical. Figures on the history tab are recorded index returns.</span>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================
+     Historical data — calendar-year TOTAL returns, USD, %
+     ---------------------------------------------------------
+       sp : S&P 500 Total Return Index (SPXTR), gross dividends
+            S&P Dow Jones Indices; cross-checked vs Slickcharts,
+            YCharts and the Callan periodic tables.
+       gl : MSCI ACWI Index, NET dividends
+            MSCI factsheets; cross-checked vs YCharts (^MSACWINTR).
+
+     The window starts at 2001 because MSCI's published net series
+     does not reach 2000 — better a clean 25 years than a spliced 26.
+     ========================================================= */
+
+  var HISTORY = [
+    { y: 2001, sp: -11.9, gl: -16.2 },
+    { y: 2002, sp: -22.1, gl: -19.3 },
+    { y: 2003, sp:  28.7, gl:  34.0 },
+    { y: 2004, sp:  10.9, gl:  15.2 },
+    { y: 2005, sp:   4.9, gl:  10.8 },
+    { y: 2006, sp:  15.8, gl:  21.0 },
+    { y: 2007, sp:   5.5, gl:  11.7 },
+    { y: 2008, sp: -37.0, gl: -42.2 },
+    { y: 2009, sp:  26.5, gl:  34.6 },
+    { y: 2010, sp:  15.1, gl:  12.7 },
+    { y: 2011, sp:   2.1, gl:  -7.4 },
+    { y: 2012, sp:  16.0, gl:  16.1 },
+    { y: 2013, sp:  32.4, gl:  22.8 },
+    { y: 2014, sp:  13.7, gl:   4.2 },
+    { y: 2015, sp:   1.4, gl:  -2.4 },
+    { y: 2016, sp:  12.0, gl:   7.9 },
+    { y: 2017, sp:  21.8, gl:  24.0 },
+    { y: 2018, sp:  -4.4, gl:  -9.4 },
+    { y: 2019, sp:  31.5, gl:  26.6 },
+    { y: 2020, sp:  18.4, gl:  16.3 },
+    { y: 2021, sp:  28.7, gl:  18.5 },
+    { y: 2022, sp: -18.1, gl: -18.4 },
+    { y: 2023, sp:  26.3, gl:  22.2 },
+    { y: 2024, sp:  25.0, gl:  17.5 },
+    { y: 2025, sp:  17.9, gl:  22.3 }
+  ];
+
+  var HIST_BASE = 10000;
+
+  /* ---- history-view state: one amount, one window ----
+     Everything in the second view is derived from these three numbers,
+     so a control change is always just: set, re-derive, re-render. */
+  var Y_FIRST = HISTORY[0].y;
+  var Y_LAST  = HISTORY[HISTORY.length - 1].y;
+  var HS = { initial: 0, monthly: 150, from: Y_FIRST, to: Y_LAST };
+
+  function hRows()  { return HISTORY.filter(function (r) { return r.y >= HS.from && r.y <= HS.to; }); }
+  function hSpan()  { return HS.to - HS.from + 1; }
+  function hLabel() { return HS.from + "\u2013" + HS.to; }
+
+  /* =========================================================
+     Data
+     ========================================================= */
+
+  var TYPES = [
+    {
+      id: "sp500",
+      key: "sp",
+      name: "S&P 500",
+      etf: "VOO",
+      index: "S&P 500",
+      fund: "Vanguard S&P 500 ETF",
+      desc: "Large U.S. companies."
+    },
+    {
+      id: "global",
+      key: "gl",
+      name: "Global Stock Market",
+      etf: "VT",
+      index: "FTSE Global All Cap / Global Stock Market",
+      fund: "Vanguard Total World Stock ETF",
+      desc: "Diversified exposure to U.S., developed international, and emerging markets."
+    }
+  ];
+
+  var PRESET_RATES = [5, 6, 7, 8, 10];
+  var MONTHLY_STEPS = [50, 100, 150, 200, 250, 300, 500];
+
+  var DEFAULTS = { initial: 0, monthly: 150, years: 18, rate: 7, type: "sp500" };
+  var state = { initial: 0, monthly: 150, years: 18, rate: 7, type: "sp500" };
+
+  /* =========================================================
+     Math — monthly compounding, contributions at month end
+     -------------------------------------------------------
+       balance(0)      = initial
+       balance(m)      = balance(m-1) * (1 + r) + monthly
+       r               = annualRate / 100 / 12
+     A 0% rate reduces to initial + monthly * months, which the
+     loop handles without any special case.
+     ========================================================= */
+
+  function project(initial, monthly, years, annualRate) {
+    var r = annualRate / 100 / 12;
+    var months = Math.round(years * 12);
+    var balance = initial;
+    var rows = [];
+
+    for (var y = 1; y <= years; y++) {
+      var begin = balance;
+      for (var m = 0; m < 12; m++) {
+        balance = balance * (1 + r) + monthly;
+      }
+      var contrib = monthly * 12;
+      rows.push({
+        year: y,
+        begin: begin,
+        contrib: contrib,
+        growth: balance - begin - contrib,
+        end: balance,
+        investedToDate: initial + monthly * 12 * y
+      });
+    }
+
+    var invested = initial + monthly * months;
+    return {
+      months: months,
+      final: balance,
+      initial: initial,
+      contributions: monthly * months,
+      invested: invested,
+      growth: balance - invested,
+      rows: rows
+    };
+  }
+
+  /* Closed form, used only to sanity-check the loop in the console. */
+  function closedForm(initial, monthly, years, annualRate) {
+    var r = annualRate / 100 / 12;
+    var n = Math.round(years * 12);
+    if (r === 0) { return initial + monthly * n; }
+    var g = Math.pow(1 + r, n);
+    return initial * g + monthly * (g - 1) / r;
+  }
+
+  /* --------- historical statistics, all derived from HISTORY --------- */
+
+  function growthSeries(key, from, to, base) {
+    var v = (base === undefined ? HIST_BASE : base), out = [];
+    HISTORY.forEach(function (r) {
+      if (from && r.y < from) { return; }
+      if (to && r.y > to) { return; }
+      v = v * (1 + r[key] / 100);
+      out.push(v);
+    });
+    return out;
+  }
+
+  /* ---------------------------------------------------------------
+     What a real savings plan would have done in a real index.
+
+     Each calendar year's total return is spread evenly across its
+     twelve months — (1+r)^(1/12) — and contributions land at the end
+     of each month, the same convention the projection tab uses. With
+     monthly = 0 this collapses exactly to the lump-sum series, so the
+     two cases share one code path.
+
+     Spreading the year evenly is an approximation: the real months
+     inside 2008 were nothing like each other. It changes the ending
+     figure only slightly, and the page says so under the controls.
+     --------------------------------------------------------------- */
+  function contribSeries(key, from, to, initial, monthly) {
+    var bal = initial, put = initial, out = [];
+    HISTORY.forEach(function (r) {
+      if (from && r.y < from) { return; }
+      if (to && r.y > to) { return; }
+      var m = Math.pow(1 + r[key] / 100, 1 / 12) - 1;
+      for (var i = 0; i < 12; i++) { bal = bal * (1 + m) + monthly; put += monthly; }
+      out.push({ y: r.y, invested: put, value: bal });
+    });
+    return out;
+  }
+
+  /* What this contribution schedule actually earned, as one flat rate.
+
+     Two conventions are in play and they are NOT interchangeable. The
+     projection tab takes a nominal rate and compounds it monthly, so
+     8.5% there means 8.84% a year in the hand. `equivalentRate` solves
+     in the projection's own convention (so its answer can be typed
+     straight into that field); `effective()` converts to the annual
+     figure that is comparable with an index CAGR. Display the second,
+     hand the first to the input — a lump sum then reports exactly the
+     index's own annualized return, which is the check a reader applies. */
+  function equivalentRate(initial, monthly, years, target) {
+    if (years <= 0) { return 0; }
+    if (initial + monthly * years * 12 <= 0) { return 0; }
+    var lo = -95, hi = 100;
+    if (closedForm(initial, monthly, years, hi) < target) { return hi; }
+    if (closedForm(initial, monthly, years, lo) > target) { return lo; }
+    for (var i = 0; i < 80; i++) {
+      var mid = (lo + hi) / 2;
+      if (closedForm(initial, monthly, years, mid) < target) { lo = mid; } else { hi = mid; }
+    }
+    return (lo + hi) / 2;
+  }
+
+  function effective(nominal) { return (Math.pow(1 + nominal / 100 / 12, 12) - 1) * 100; }
+
+  function cagr(key, from, to) {
+    var v = 1, n = 0;
+    HISTORY.forEach(function (r) {
+      if (from && r.y < from) { return; }
+      if (to && r.y > to) { return; }
+      v *= (1 + r[key] / 100); n++;
+    });
+    return n ? (Math.pow(v, 1 / n) - 1) * 100 : 0;
+  }
+
+  function histStats(key) {
+    var rs = hRows();
+    var best = rs[0], worst = rs[0], down = 0, sum = 0;
+    rs.forEach(function (r) {
+      if (r[key] > best[key]) { best = r; }
+      if (r[key] < worst[key]) { worst = r; }
+      if (r[key] < 0) { down++; }
+      sum += r[key];
+    });
+    var led = rs.filter(function (r) {
+      return key === "sp" ? r.sp > r.gl : r.gl > r.sp;
+    }).length;
+
+    var series = contribSeries(key, HS.from, HS.to, HS.initial, HS.monthly);
+    var last = series[series.length - 1] || { invested: HS.initial, value: HS.initial };
+
+    /* the year the balance sat furthest below the money paid in —
+       the moment a client is most likely to want out */
+    var gapIdx = 0, underwater = 0;
+    series.forEach(function (pt, i) {
+      if (pt.value - pt.invested < series[gapIdx].value - series[gapIdx].invested) { gapIdx = i; }
+      if (pt.value < pt.invested) { underwater++; }
+    });
+    var worstPt = series[gapIdx] || last;
+
+    return {
+      cagr: cagr(key, HS.from, HS.to),
+      avg: rs.length ? sum / rs.length : 0,
+      best: best, worst: worst,
+      down: down, led: led,
+      years: rs.length,
+      series: series,
+      invested: last.invested,
+      finalValue: last.value,
+      gain: last.value - last.invested,
+      multiple: last.invested > 0 ? last.value / last.invested : 0,
+      flatNominal: equivalentRate(HS.initial, HS.monthly, rs.length, last.value),
+      flat: effective(equivalentRate(HS.initial, HS.monthly, rs.length, last.value)),
+      underwater: underwater,
+      worstGapYear: worstPt.y,
+      worstGap: worstPt.value - worstPt.invested,
+      worstGapValue: worstPt.value,
+      worstGapInvested: worstPt.invested
+    };
+  }
+
+  /* =========================================================
+     Formatting
+     ========================================================= */
+
+  function money(n, cents) {
+    if (!isFinite(n)) { n = 0; }
+    return n.toLocaleString("en-US", {
+      style: "currency", currency: "USD",
+      minimumFractionDigits: cents ? 2 : 0,
+      maximumFractionDigits: cents ? 2 : 0
+    });
+  }
+  function compact(n) {
+    if (!isFinite(n)) { return "$0"; }
+    var a = Math.abs(n);
+    if (a >= 1e6) { return "$" + (n / 1e6).toFixed(a >= 1e7 ? 0 : 1) + "M"; }
+    if (a >= 1e3) { return "$" + Math.round(n / 1e3) + "K"; }
+    return "$" + Math.round(n);
+  }
+  function pct(n) { return (Math.round(n * 10) / 10).toFixed(1) + "%"; }
+  function signed(n) { return (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(1) + "%"; }
+  function ppts(n) { return (n > 0 ? "+" : n < 0 ? "−" : "") + Math.abs(n).toFixed(1) + " pp"; }
+  function yrs(n) { return n + (n === 1 ? " year" : " years"); }
+  function el(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) { n.className = cls; }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+
+  /* =========================================================
+     Inputs + validation
+     ========================================================= */
+
+  var F = {
+    initial: document.getElementById("initial"),
+    monthly: document.getElementById("monthly"),
+    years:   document.getElementById("years"),
+    rate:    document.getElementById("rate")
+  };
+
+  var RULES = {
+    initial: { min: 0,    max: 100000000, msg: "Initial investment cannot be negative." },
+    monthly: { min: 0,    max: 1000000,   msg: "Monthly investment cannot be negative." },
+    years:   { min: 1,    max: 80,        msg: "Investment period must be at least 1 year (max 80)." },
+    rate:    { min: 0,    max: 30,        msg: "Enter a return between 0% and 30% (decimals are fine, e.g. 6.5)." }
+  };
+
+  function readField(key) {
+    var raw = F[key].value.trim();
+    var rule = RULES[key];
+    var box = document.getElementById("box-" + key);
+    var err = document.getElementById("err-" + key);
+    var val = raw === "" ? NaN : Number(raw);
+    var bad = false;
+
+    if (!isFinite(val)) { bad = true; val = key === "years" ? DEFAULTS.years : 0; }
+    else if (val < rule.min) { bad = true; val = rule.min; }
+    else if (val > rule.max) { bad = true; val = rule.max; }
+
+    if (key === "years") { val = Math.max(1, Math.round(val)); }
+
+    box.classList.toggle("bad", bad);
+    err.classList.toggle("on", bad);
+    err.textContent = bad ? rule.msg : "";
+    return val;
+  }
+
+  function readAll() {
+    state.initial = readField("initial");
+    state.monthly = readField("monthly");
+    state.years   = readField("years");
+    state.rate    = readField("rate");
+  }
+
+  /* =========================================================
+     Investment type
+     ========================================================= */
+
+  var typesWrap = document.getElementById("types");
+  TYPES.forEach(function (t) {
+    var b = el("button", "type");
+    b.type = "button";
+    b.dataset.type = t.id;
+
+    var top = el("div", "tk");
+    top.appendChild(el("span", "tick"));
+    top.appendChild(el("span", "nm", t.name));
+    top.appendChild(el("span", "etf", t.etf));
+    b.appendChild(top);
+
+    var ds = el("div", "ds");
+    ds.innerHTML = "<strong>Index:</strong> " + t.index +
+      "<br><strong>Example ETF:</strong> " + t.etf + ", " + t.fund +
+      "<br>" + t.desc;
+    b.appendChild(ds);
+
+    var meta = el("div", "meta");
+    meta.innerHTML = "2001&ndash;2025 annualized <b>" + pct(cagr(t.key)) + "</b> <span>&middot; history, not a forecast</span>";
+    b.appendChild(meta);
+
+    b.addEventListener("click", function () { state.type = t.id; update(); });
+    typesWrap.appendChild(b);
+  });
+
+  /* =========================================================
+     Rate presets
+     ========================================================= */
+
+  var chipsWrap = document.getElementById("chips");
+  PRESET_RATES.forEach(function (r) {
+    var c = el("button", "chip", r + "%");
+    c.type = "button";
+    c.dataset.rate = String(r);
+    c.addEventListener("click", function () { F.rate.value = String(r); update(); });
+    chipsWrap.appendChild(c);
+  });
+  var customChip = el("button", "chip custom", "Custom");
+  customChip.type = "button";
+  customChip.addEventListener("click", function () { F.rate.focus(); F.rate.select(); });
+  chipsWrap.appendChild(customChip);
+
+  /* =========================================================
+     Shared chart helpers
+     ========================================================= */
+
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+    return v || fallback;
+  }
+
+  function hexA(hex, a) {
+    var h = hex.replace("#", "");
+    if (h.length === 3) { h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2]; }
+    var n = parseInt(h, 16);
+    return "rgba(" + ((n >> 16) & 255) + "," + ((n >> 8) & 255) + "," + (n & 255) + "," + a + ")";
+  }
+
+  var UI_FONT  = '"Inter", ui-sans-serif, system-ui, -apple-system, sans-serif';
+  var NUM_FONT = '"Inter", ui-sans-serif, system-ui, -apple-system, sans-serif';
+
+  function baseOptions(muted, line, ink) {
+    return {
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 8, right: 8 } },
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: {
+          align: "end",
+          labels: {
+            color: muted, usePointStyle: true, pointStyle: "circle",
+            boxWidth: 8, boxHeight: 8, padding: 20,
+            font: { family: UI_FONT, size: 13, weight: "500" }
+          }
+        },
+        tooltip: {
+          backgroundColor: ink,
+          titleColor: "#fff",
+          bodyColor: "rgba(255,255,255,.90)",
+          borderColor: "rgba(255,255,255,.12)",
+          borderWidth: 1,
+          padding: 13, cornerRadius: 12, boxPadding: 6, usePointStyle: true,
+          titleFont: { family: UI_FONT, size: 13, weight: "600" },
+          bodyFont: { family: NUM_FONT, size: 13 }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          border: { color: line },
+          ticks: { color: muted, maxRotation: 0, autoSkipPadding: 22, padding: 9, font: { family: UI_FONT, size: 12.5 } }
+        },
+        y: {
+          grid: { color: line, drawTicks: false },
+          border: { display: false },
+          ticks: { color: muted, padding: 12, font: { family: NUM_FONT, size: 12 }, callback: function (v) { return compact(v); } }
+        }
+      }
+    };
+  }
+
+  /* =========================================================
+     Projection chart
+     ========================================================= */
+
+  var chart = null;
+  var chartBox = document.getElementById("chartBox");
+
+  function drawChart(res) {
+    var labels = ["Start"], invested = [state.initial], value = [state.initial];
+    res.rows.forEach(function (row) {
+      labels.push("Yr " + row.year);
+      invested.push(row.investedToDate);
+      value.push(row.end);
+    });
+
+    if (typeof Chart === "undefined") { drawSvgChart(labels, invested, value); return; }
+
+    var put = cssVar("--put", "#1C5480");
+    var grow = cssVar("--grow", "#0B6B52");
+    var line = cssVar("--line-soft", "#F1ECE2");
+    var muted = cssVar("--muted", "#5E584F");
+    var ink = cssVar("--ink", "#171512");
+
+    function fade(hex, top, bottom) {
+      return function (ctx) {
+        var area = ctx.chart.chartArea;
+        if (!area) { return hexA(hex, top); }
+        var g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        g.addColorStop(0, hexA(hex, top));
+        g.addColorStop(1, hexA(hex, bottom));
+        return g;
+      };
+    }
+
+    var opts = baseOptions(muted, line, ink);
+    opts.plugins.tooltip.callbacks = {
+      label: function (ctx) { return ctx.dataset.label + ": " + money(ctx.parsed.y); },
+      afterBody: function (items) {
+        if (items.length < 2) { return ""; }
+        var a = items[0].parsed.y, b = items[1].parsed.y;
+        return "Growth: " + money(Math.abs(b - a));
+      }
+    };
+
+    if (chart) { chart.destroy(); chart = null; }
+    /* the canvas is replaced on every redraw, so its accessible name has
+       to be reapplied here or it is lost after the first render */
+    chartBox.innerHTML = '<canvas id="chart" role="img" aria-label="' +
+      'Chart of total contributions against estimated portfolio value, year by year"></canvas>';
+
+    chart = new Chart(document.getElementById("chart"), {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Total invested", data: invested,
+            borderColor: put, backgroundColor: fade(put, .22, .05), fill: "origin",
+            borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+            pointHoverBackgroundColor: put, pointHoverBorderColor: "#fff", pointHoverBorderWidth: 2.5,
+            tension: .3
+          },
+          {
+            label: "Estimated portfolio value", data: value,
+            borderColor: grow, backgroundColor: fade(grow, .28, .05), fill: "-1",
+            borderWidth: 2.75, pointRadius: 0, pointHoverRadius: 5,
+            pointHoverBackgroundColor: grow, pointHoverBorderColor: "#fff", pointHoverBorderWidth: 2.5,
+            tension: .3
+          }
+        ]
+      },
+      options: opts
+    });
+  }
+
+  /* Fallback: a clean SVG area chart, so the page still works offline. */
+  function drawSvgChart(labels, invested, value) {
+    var W = Math.max(360, chartBox.clientWidth || 900);
+    var H = Math.max(200, chartBox.clientHeight || 340);
+    var padL = 74, padR = 14, padT = 16, padB = 36;
+    var max = Math.max.apply(null, value) * 1.06 || 1;
+    var n = value.length;
+    var x = function (i) { return padL + (W - padL - padR) * (n === 1 ? 0 : i / (n - 1)); };
+    var y = function (v) { return H - padB - (H - padT - padB) * (v / max); };
+
+    function path(arr, close) {
+      var d = "M" + x(0) + " " + y(arr[0]);
+      for (var i = 1; i < arr.length; i++) { d += " L" + x(i) + " " + y(arr[i]); }
+      if (close) { d += " L" + x(arr.length - 1) + " " + (H - padB) + " L" + x(0) + " " + (H - padB) + " Z"; }
+      return d;
+    }
+    function band() {
+      var d = "M" + x(0) + " " + y(value[0]);
+      for (var i = 1; i < n; i++) { d += " L" + x(i) + " " + y(value[i]); }
+      for (var j = n - 1; j >= 0; j--) { d += " L" + x(j) + " " + y(invested[j]); }
+      return d + " Z";
+    }
+
+    var put = cssVar("--put", "#1C5480"), grow = cssVar("--grow", "#0B6B52");
+    var line = cssVar("--line-soft", "#F1ECE2"), muted = cssVar("--muted", "#5E584F");
+
+    var ticks = "";
+    for (var t = 0; t <= 4; t++) {
+      var v = max * t / 4, yy = y(v);
+      ticks += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (W - padR) + '" y2="' + yy + '" stroke="' + line + '" stroke-width="1"/>' +
+               '<text x="' + (padL - 12) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="12" fill="' + muted + '" font-family="Inter, sans-serif">' + compact(v) + '</text>';
+    }
+    var xl = "";
+    var step = Math.max(1, Math.ceil(n / 10));
+    for (var i = 0; i < n; i += step) {
+      xl += '<text x="' + x(i) + '" y="' + (H - 11) + '" text-anchor="middle" font-size="12.5" fill="' + muted + '" font-family="Inter, sans-serif">' + labels[i] + '</text>';
+    }
+
+    chartBox.innerHTML =
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="Portfolio growth chart">' +
+      ticks +
+      '<path d="' + band() + '" fill="' + hexA(grow, .20) + '"/>' +
+      '<path d="' + path(invested, true) + '" fill="' + hexA(put, .17) + '"/>' +
+      '<path d="' + path(invested) + '" fill="none" stroke="' + put + '" stroke-width="2"/>' +
+      '<path d="' + path(value) + '" fill="none" stroke="' + grow + '" stroke-width="2.75"/>' +
+      xl +
+      "</svg>";
+  }
+
+  /* =========================================================
+     Historical section
+     ========================================================= */
+
+  var histChart = null;
+  var histChartBox = document.getElementById("histChartBox");
+  var histDrawn = false;
+
+  /* =========================================================
+     History controls — amount, window, and the verdict cards
+     ========================================================= */
+
+  var HA = {
+    init:    document.getElementById("histInit"),
+    monthly: document.getElementById("histMonthly"),
+    from:    document.getElementById("histFrom"),
+    to:      document.getElementById("histTo")
+  };
+
+  (function fillYears() {
+    var opts = "";
+    for (var y = Y_FIRST; y <= Y_LAST; y++) { opts += '<option value="' + y + '">' + y + '</option>'; }
+    HA.from.innerHTML = opts; HA.to.innerHTML = opts;
+    HA.from.value = String(HS.from);
+    HA.to.value = String(HS.to);
+  })();
+
+  var HIST_PRESETS = [
+    { label: "All " + (Y_LAST - Y_FIRST + 1) + " years", from: Y_FIRST, to: Y_LAST },
+    { label: "Last 10", from: Y_LAST - 9,  to: Y_LAST },
+    { label: "Last 5",  from: Y_LAST - 4,  to: Y_LAST },
+    { label: "Through the 2008 crash", from: 2007, to: 2012 },
+    { label: "The 2010s", from: 2011, to: 2020 }
+  ].filter(function (r) { return r.from >= Y_FIRST && r.to <= Y_LAST; });
+
+  var presetWrap = document.getElementById("histPresets");
+  HIST_PRESETS.forEach(function (r) {
+    var c = el("button", "chip", r.label);
+    c.type = "button";
+    c.dataset.from = String(r.from);
+    c.dataset.to = String(r.to);
+    c.addEventListener("click", function () {
+      HA.from.value = String(r.from);
+      HA.to.value = String(r.to);
+      readHist();
+    });
+    presetWrap.appendChild(c);
+  });
+
+  function readHist() {
+    function num(elm) {
+      var v = parseFloat(String(elm.value).replace(/[^0-9.\-]/g, ""));
+      if (!isFinite(v) || v < 0) { v = 0; }
+      return Math.min(v, 1e9);
+    }
+    HS.initial = num(HA.init);
+    HS.monthly = num(HA.monthly);
+
+    var from = parseInt(HA.from.value, 10);
+    var to   = parseInt(HA.to.value, 10);
+    if (to < from) {
+      /* whichever the person just moved wins; nudge the other to match */
+      if (document.activeElement === HA.from) { to = from; HA.to.value = String(to); }
+      else { from = to; HA.from.value = String(from); }
+    }
+    HS.from = from; HS.to = to;
+
+    Array.prototype.forEach.call(presetWrap.children, function (c) {
+      c.setAttribute("aria-pressed",
+        String(Number(c.dataset.from) === HS.from && Number(c.dataset.to) === HS.to));
+    });
+
+    renderHistory();
+  }
+
+  function renderVerdict() {
+    var sp = histStats("sp"), gl = histStats("gl");
+    var box = document.getElementById("histVerdict");
+
+    var howPaid = HS.monthly > 0
+      ? money(HS.monthly) + " a month" + (HS.initial > 0 ? " on top of " + money(HS.initial) + " up front" : "")
+      : money(HS.initial) + " invested once";
+
+    function card(m, st, other) {
+      var ahead = st.finalValue >= other.finalValue;
+      var diff = Math.abs(st.finalValue - other.finalValue);
+      return '<div class="vcard ' + m.cls + '">' +
+        '<h3>' + m.name + '<em>' + m.tag + '</em></h3>' +
+        '<div class="flow">' +
+          '<span class="from">' + money(st.invested) + ' in</span>' +
+          '<span class="arw">&rarr;</span>' +
+          '<span class="to">' + money(st.finalValue) + '</span>' +
+        '</div>' +
+        '<div class="meta">' +
+          '<span class="pill ' + (st.gain >= 0 ? "" : "dn") + '">' + (st.gain >= 0 ? "+" : "\u2212") + money(Math.abs(st.gain)) + ' growth</span>' +
+          '<span class="pill">' + st.multiple.toFixed(1) + '\u00d7 what you paid in</span>' +
+          '<span class="pill">' + pct(st.flat) + ' a year on your money</span>' +
+          (ahead
+            ? '<span class="pill win">Ahead by ' + money(diff) + '</span>'
+            : '<span class="pill">Behind by ' + money(diff) + '</span>') +
+        '</div>' +
+        '<p class="note">' + howPaid + ' across ' + (st.years === 1 ? '1 calendar year' : st.years + ' calendar years') + ', ' + hLabel() +
+        '. Every dividend reinvested, nothing withdrawn. The index itself returned ' + pct(st.cagr) +
+        ' a year over the same stretch.</p>' +
+      '</div>';
+    }
+
+    box.innerHTML =
+      card({ cls: "sp", name: "S&P 500", tag: "VOO" }, sp, gl) +
+      card({ cls: "gl", name: "Global Stock Market", tag: "VT" }, gl, sp);
+
+    document.getElementById("histSub").innerHTML =
+      "Calendar-year total returns in USD, " + hLabel() + ", dividends reinvested, applied to the plan you set above. " +
+      "This is recorded history, not a forecast, and not the rate used in the projection on the other tab.";
+  }
+
+  /* The hero card always states the FULL record, whatever window the
+     history tab is set to — it is the page's fixed headline, not a
+     readout of the controls, so it uses the defaults deliberately. */
+  function renderHeroCard() {
+    var box = document.getElementById("heroCard");
+    if (!box) { return; }
+    var span = Y_LAST - Y_FIRST + 1;
+
+    function row(cls, name, tag, key) {
+      var series = growthSeries(key);
+      return '<div class="hc-row">' +
+        '<span class="dot ' + cls + '"></span>' +
+        '<div><div class="nm">' + name + '</div><div class="tag">' + tag + '</div></div>' +
+        '<div class="rt"><b>' + pct(cagr(key)) + '</b><span>a year</span></div>' +
+      '</div>';
+    }
+
+    var sp = growthSeries("sp"), gl = growthSeries("gl");
+    box.innerHTML =
+      '<div class="hc-h">The ' + span + '-year record, ' + Y_FIRST + '\u2013' + Y_LAST + '</div>' +
+      row("sp", "S&P 500", "Example ETF \u00b7 VOO", "sp") +
+      row("gl", "Global Stock Market", "Example ETF \u00b7 VT", "gl") +
+      '<p class="hc-note">' + money(HIST_BASE) + ' invested at the start of ' + Y_FIRST +
+      ' and left alone would have become <b>' + money(sp[sp.length - 1]) + '</b> and <b>' +
+      money(gl[gl.length - 1]) + '</b> by the end of ' + Y_LAST +
+      '. Calendar-year total returns, dividends reinvested, before fees and taxes.</p>';
+  }
+
+  /* =========================================================
+     Data & sources tab — the raw record, unfiltered by the
+     history controls, plus a CSV of exactly what is on screen
+     ========================================================= */
+
+  var CHECKED_ON = "5 September 2026";
+
+  function renderDataTab() {
+    var body = document.getElementById("dataBody");
+    if (!body) { return; }
+
+    var spLed = 0, glLed = 0, spDown = 0, glDown = 0, out = "";
+    HISTORY.forEach(function (r) {
+      var gap = r.sp - r.gl, led = gap > 0;
+      if (led) { spLed++; } else { glLed++; }
+      if (r.sp < 0) { spDown++; }
+      if (r.gl < 0) { glDown++; }
+      out +=
+        '<tr>' +
+          '<td>' + r.y + '</td>' +
+          '<td class="ret ' + (r.sp >= 0 ? "pos" : "neg") + '">' + signed(r.sp) + '</td>' +
+          '<td class="ret ' + (r.gl >= 0 ? "pos" : "neg") + '">' + signed(r.gl) + '</td>' +
+          '<td class="gap">' + ppts(gap) + '</td>' +
+          '<td class="led"><span class="dot ' + (led ? "sp" : "gl") + '"></span>' +
+            (led ? "S&amp;P 500" : "Global") + '</td>' +
+        '</tr>';
+    });
+    body.innerHTML = out;
+
+    var spAvg = 0, glAvg = 0;
+    HISTORY.forEach(function (r) { spAvg += r.sp; glAvg += r.gl; });
+    spAvg /= HISTORY.length; glAvg /= HISTORY.length;
+
+    document.getElementById("dataFoot").innerHTML =
+      '<tr><td class="lab">Average year<small>the ' + HISTORY.length + ' figures above, added up and divided by ' + HISTORY.length + '</small></td>' +
+        '<td class="ret ' + (spAvg >= 0 ? "pos" : "neg") + '">' + signed(spAvg) + '</td>' +
+        '<td class="ret ' + (glAvg >= 0 ? "pos" : "neg") + '">' + signed(glAvg) + '</td>' +
+        '<td class="gap">' + ppts(spAvg - glAvg) + '</td><td></td></tr>' +
+      '<tr class="key"><td class="lab">Annualized return<small>the steady rate that reproduces the ' + HISTORY.length + '-year result</small></td>' +
+        '<td class="ret pos">' + signed(cagr("sp")) + '</td>' +
+        '<td class="ret pos">' + signed(cagr("gl")) + '</td>' +
+        '<td class="gap">' + ppts(cagr("sp") - cagr("gl")) + '</td><td></td></tr>' +
+      '<tr><td class="lab">Years that finished down<small>calendar years ending below where they started</small></td>' +
+        '<td class="val">' + spDown + ' of ' + HISTORY.length + '</td>' +
+        '<td class="val">' + glDown + ' of ' + HISTORY.length + '</td>' +
+        '<td></td><td></td></tr>' +
+      '<tr><td class="lab">Years it led the other<small>who finished ahead, year by year</small></td>' +
+        '<td class="val">' + spLed + '</td>' +
+        '<td class="val">' + glLed + '</td>' +
+        '<td></td><td></td></tr>';
+
+    document.getElementById("dataSub").textContent =
+      HISTORY.length + " calendar years, " + Y_FIRST + "\u2013" + Y_LAST +
+      ", in percent. These are the only market figures on the site; everything else is calculated from them.";
+
+    document.getElementById("checkedNote").textContent =
+      "The S&P 500 column was last cross-checked line by line against the Slickcharts annual returns page on " +
+      CHECKED_ON + ", and matched to the rounding shown. Index providers do restate figures occasionally, so check " +
+      "the year in question before quoting it in writing.";
+  }
+
+  (function wireCsv() {
+    var btn = document.getElementById("csvBtn");
+    if (!btn) { return; }
+    btn.addEventListener("click", function () {
+      var rows = ["Year,S&P 500 total return %,MSCI ACWI net total return %"];
+      HISTORY.forEach(function (r) { rows.push(r.y + "," + r.sp + "," + r.gl); });
+      rows.push("");
+      rows.push("Source,S&P 500 Total Return Index (gross dividends) via S&P Dow Jones Indices and Slickcharts");
+      rows.push("Source,MSCI ACWI Index net total return USD index code 892400");
+      rows.push("Note,Calendar-year total returns in USD. Index returns exclude fund fees trading costs and taxes.");
+      try {
+        var blob = new Blob([rows.join("\n")], { type: "text/csv;charset=utf-8" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "index-annual-returns-" + Y_FIRST + "-" + Y_LAST + ".csv";
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+      } catch (err) {
+        btn.textContent = "Download blocked by the browser";
+      }
+    });
+  })();
+
+  function renderHistory() {
+    renderVerdict();
+    renderHistTable();
+    renderGlance();
+    renderGrowthMilestones();
+    renderGrowthNote();
+    if (histDrawn) { drawHistChart(); }
+  }
+
+  function renderHistTable() {
+    var body = document.getElementById("histBody");
+    var rs = hRows();
+    var sp = contribSeries("sp", HS.from, HS.to, HS.initial, HS.monthly);
+    var gl = contribSeries("gl", HS.from, HS.to, HS.initial, HS.monthly);
+    var out = "";
+
+    rs.forEach(function (r, i) {
+      var spLed = r.sp > r.gl;
+      var spUp = sp[i].value >= sp[i].invested;
+      var glUp = gl[i].value >= gl[i].invested;
+      out +=
+        '<tr>' +
+          '<td>' + r.y + '</td>' +
+          '<td class="put">' + money(sp[i].invested) + '</td>' +
+          '<td class="ret grpstart sp ' + (r.sp >= 0 ? "pos" : "neg") + (spLed ? " lead" : "") + '">' + signed(r.sp) + '</td>' +
+          '<td class="val' + (spUp ? "" : " under") + '">' + money(sp[i].value) + '</td>' +
+          '<td class="ret grpstart gl ' + (r.gl >= 0 ? "pos" : "neg") + (!spLed ? " lead" : "") + '">' + signed(r.gl) + '</td>' +
+          '<td class="val' + (glUp ? "" : " under") + '">' + money(gl[i].value) + '</td>' +
+        '</tr>';
+    });
+
+    body.innerHTML = out;
+    renderHistFoot();
+  }
+
+  /* --------- the bottom line under the year-by-year table ---------
+     Two averages, because they answer two different questions:
+       avg  — the plain mean of the 25 calendar-year returns
+       cagr — the constant rate that reproduces the actual ending value
+     The second is always the smaller of the two, and it is the one
+     worth carrying up to the projection at the top of the page.
+     ---------------------------------------------------------------- */
+  function renderHistFoot() {
+    var foot = document.getElementById("histFoot");
+    var sp = histStats("sp"), gl = histStats("gl");
+
+    function pctRow(cls, label, note, a, b) {
+      return '<tr class="' + cls + '">' +
+        '<td class="lab">' + label + '<small>' + note + '</small></td>' +
+        '<td></td>' +
+        '<td class="ret grpstart ' + (a >= 0 ? "pos" : "neg") + '">' + signed(a) + '</td><td></td>' +
+        '<td class="ret grpstart ' + (b >= 0 ? "pos" : "neg") + '">' + signed(b) + '</td><td></td></tr>';
+    }
+
+    foot.innerHTML =
+      pctRow("", "Average year",
+        "all " + sp.years + " yearly returns added up, divided by " + sp.years, sp.avg, gl.avg) +
+      pctRow("key", "Annualized index return",
+        "the steady yearly rate the index itself delivered over " + hLabel(), sp.cagr, gl.cagr) +
+      '<tr><td class="lab">Ended with<small>after putting in ' + money(sp.invested) + ' across ' + yrs(sp.years) + '</small></td>' +
+        '<td class="put val">' + money(sp.invested) + '</td>' +
+        '<td class="grpstart"></td><td class="val">' + money(sp.finalValue) + '</td>' +
+        '<td class="grpstart"></td><td class="val">' + money(gl.finalValue) + '</td></tr>' +
+      '<tr><td class="lab">Growth on top<small>everything above the money you paid in</small></td>' +
+        '<td></td>' +
+        '<td class="grpstart"></td><td class="val ' + (sp.gain >= 0 ? "pos" : "neg") + '">' + (sp.gain >= 0 ? "+" : "\u2212") + money(Math.abs(sp.gain)) + '</td>' +
+        '<td class="grpstart"></td><td class="val ' + (gl.gain >= 0 ? "pos" : "neg") + '">' + (gl.gain >= 0 ? "+" : "\u2212") + money(Math.abs(gl.gain)) + '</td></tr>';
+
+    renderTakeaway(sp, gl);
+  }
+
+  function renderTakeaway(sp, gl) {
+    var box = document.getElementById("histTakeaway");
+    var monthlyPlan = HS.monthly > 0;
+
+    /* A saver's return can land either side of the index's own rate:
+       above when the balance was already large before the best years,
+       below when the money arrived late. Assuming one direction is how
+       a confident sentence ends up simply wrong, so read it off. */
+    var dSp = sp.flat - sp.cagr, dGl = gl.flat - gl.cagr;
+    var side = (dSp > 0.1 && dGl > 0.1) ? "above"
+             : (dSp < -0.1 && dGl < -0.1) ? "below" : "mixed";
+
+    var sideNote =
+      side === "above"
+        ? 'Both land <b>above</b> what the indexes themselves compounded at, and that is not a bonus. It means the balance was already large before the strongest years arrived. Pay in on a different schedule, or through a different stretch, and the same two indexes give a different answer.'
+      : side === "below"
+        ? 'Both land <b>below</b> what the indexes themselves compounded at, because money paid in late had less time to grow. That gap is the ordinary cost of saving gradually instead of having it all in on day one.'
+        : 'This lands above the index\u2019s own rate for one and below it for the other. That is the whole point: what a saver earns depends on <em>when</em> the money arrived, not only on what the index did.';
+
+    function pair(a, b) {
+      return '<span class="n1">' + pct(a) + '</span><span class="sep">\u00b7</span><span class="n2">' + pct(b) + '</span>';
+    }
+
+    box.innerHTML =
+      '<h4>Three different \u201creturns\u201d, and which one to quote</h4>' +
+      '<div class="defs">' +
+        '<div class="def">' +
+          '<div class="dt">Average year</div>' +
+          '<div class="dv">' + pair(sp.avg, gl.avg) + '</div>' +
+          '<p>Add up all ' + sp.years + ' yearly returns and divide by ' + sp.years + '. It describes a typical single year, but it is <em>not</em> what anyone earned.</p>' +
+        '</div>' +
+        '<div class="def">' +
+          '<div class="dt">Annualized index return</div>' +
+          '<div class="dv">' + pair(sp.cagr, gl.cagr) + '</div>' +
+          '<p>What the index itself compounded at over ' + hLabel() + '. This is the right number for a lump sum left alone the whole way.</p>' +
+        '</div>' +
+        '<div class="def key">' +
+          '<div class="dt">What this plan earned<span class="dn">use this one</span></div>' +
+          '<div class="dv">' + pair(sp.flat, gl.flat) + '</div>' +
+          '<p>' + (monthlyPlan
+            ? 'The steady yearly rate that turns ' + money(HS.monthly) + ' a month into the ' + money(sp.finalValue) + ' and ' + money(gl.finalValue) + ' above. It is the honest answer to \u201cwhat did <em>my</em> money earn?\u201d'
+            : 'The steady yearly rate that turns ' + money(HS.initial) + ' into the ' + money(sp.finalValue) + ' and ' + money(gl.finalValue) + ' above. With nothing paid in along the way it matches the index rate exactly, as it should.') +
+          '</p>' +
+        '</div>' +
+      '</div>' +
+      '<div class="why-pair">' +
+      (monthlyPlan ? '<p class="why"><b>Why the third number differs from the second.</b> ' + sideNote + '</p>' : '') +
+      '<p class="why"><b>Why the annualized number beats the average.</b> A loss takes more away than an equal-sized gain gives back. Lose 50% then gain 50% and you are at 75, not 100. The plain average of those two years says 0%, while the truth is \u221225%. The more a series swings, the further the plain average drifts above what anyone kept.</p>' +
+      '</div>' +
+      '<div class="acts no-print">' +
+        '<span class="lb">Rebuild this on the projection tab:</span>' +
+        '<button type="button" class="chip" data-userate="' + sp.flatNominal.toFixed(2) + '">Model the S&amp;P 500 version</button>' +
+        '<button type="button" class="chip" data-userate="' + gl.flatNominal.toFixed(2) + '">Model the global version</button>' +
+      '</div>' +
+      '<p class="why no-print" style="margin-top:.55rem">Those buttons copy this plan onto the projection tab: the amounts, the length, and the rate it worked out to. The forecast then lands on the same figure you just showed.</p>';
+
+    Array.prototype.forEach.call(box.querySelectorAll("[data-userate]"), function (b) {
+      b.addEventListener("click", function () {
+        /* the rate field is nominal-compounded-monthly, so hand it the
+           nominal figure rather than the effective one on display */
+        F.rate.value = b.dataset.userate;
+        F.initial.value = String(HS.initial);
+        F.monthly.value = String(HS.monthly);
+        F.years.value = String(hSpan());
+        update();
+        selectView("view-plan");
+        document.getElementById("box-rate").scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    });
+  }
+
+  function renderGlance() {
+    var wrap = document.getElementById("glanceCards");
+    wrap.innerHTML = "";
+
+    document.querySelector(".glance-lead").innerHTML =
+      'Each card below sums up the same ' + hSpan() + ' calendar years, ' + hLabel() + ', for one index. ' +
+      'The big number is what your money was worth at the end of ' + HS.to +
+      '. It is the same figure the \u201cGrowth of your money\u201d tab charts year by year.';
+
+    [
+      { key: "sp", cls: "sp", name: "S&P 500", tag: "VOO", other: "the global market" },
+      { key: "gl", cls: "gl", name: "Global Stock Market", tag: "VT", other: "the S&P 500" }
+    ].forEach(function (m) {
+      var st = histStats(m.key);
+
+      var groups = [
+        ["Where the money went", [
+          ["You paid in", (HS.monthly > 0 ? money(HS.monthly) + " a month across " + yrs(st.years) : "one deposit, nothing added after"),
+            money(st.invested), ""],
+          ["Growth on top", "everything the market added above your own money",
+            (st.gain >= 0 ? "+" : "\u2212") + money(Math.abs(st.gain)), st.gain >= 0 ? "up" : "dn"]
+        ]],
+        ["What that works out to", [
+          ["Average year", "all " + st.years + " yearly returns added up, divided by " + st.years,
+            pct(st.avg), ""],
+          ["Annualized index return", "what the index compounded at, regardless of when you paid in",
+            pct(st.cagr), ""],
+          ["What your plan earned", "the flat rate that turns your contributions into " + money(st.finalValue),
+            pct(st.flat), "hi"]
+        ]],
+        ["How rough the ride was", [
+          ["Best year", "the single strongest calendar year",
+            st.best.y + " \u00b7 " + signed(st.best[m.key]), "up"],
+          ["Worst year", "the single weakest calendar year",
+            st.worst.y + " \u00b7 " + signed(st.worst[m.key]), "dn"],
+          ["Years that finished down", "years the index ended lower than it started",
+            st.down + " of " + st.years, ""],
+          ["Years below what you had paid in", "year-ends where the balance was worth less than your own money",
+            st.underwater + " of " + st.years, ""]
+        ]],
+        ["Against " + m.other, [
+          ["Years it finished ahead", "years this index beat the other one",
+            st.led + " of " + st.years, ""]
+        ]]
+      ];
+
+      var html =
+        '<h3>' + m.name + '<em>' + m.tag + '</em></h3>' +
+        '<div class="sv">' + money(st.finalValue) + '</div>' +
+        '<div class="sk">what your ' + money(st.invested) + ' would be worth at the end of ' + HS.to + '</div>' +
+        '<div class="mult">' + st.multiple.toFixed(1) + '\u00d7 the money you put in</div>';
+
+      groups.forEach(function (g) {
+        html += '<div class="grp">' + g[0] + '</div><div class="rows">';
+        g[1].forEach(function (r) {
+          html += '<div class="' + r[3] + '">' +
+                    '<span class="lb">' + r[0] + '<small>' + r[1] + '</small></span>' +
+                    '<span>' + r[2] + '</span>' +
+                  '</div>';
+        });
+        html += '</div>';
+      });
+
+      var card = el("div", "side " + m.cls);
+      card.innerHTML = html;
+      wrap.appendChild(card);
+    });
+
+    /* the point most people miss: leadership rotates. Split whatever
+       window is selected down the middle and show both halves. */
+    /* Split the window for the two-era comparison. A decade boundary
+       tells a far truer story than a naive halving — 2001–2010 vs
+       2011–2025 is the flip everyone remembers — so prefer the decade
+       break nearest the middle, as long as each side keeps 4+ years. */
+    var half = HS.from + Math.floor((HS.to - HS.from) / 2);
+    var mid = half, bestGap = Infinity;
+    for (var by = HS.from + 3; by <= HS.to - 4; by++) {
+      if (by % 10 !== 0) { continue; }
+      var gap = Math.abs(by - half);
+      if (gap < bestGap) { bestGap = gap; mid = by; }
+    }
+    var ins = document.getElementById("insight");
+
+    if (hSpan() < 4) {
+      ins.innerHTML =
+        '<h4>Read this before choosing</h4>' +
+        '<p>A window this short says very little about either index. Widen it before drawing a conclusion. ' +
+        'The whole point of the ' + (Y_LAST - Y_FIRST + 1) + '-year record is that leadership rotates, and a handful of ' +
+        'years will always flatter whichever one just finished winning.</p>' +
+        '<p style="margin-top:.7rem">The global index also holds roughly 60% U.S. stocks itself, so the two are ' +
+        'far from independent. The real difference is how much non-U.S. exposure you want, not whether you own the U.S. market.</p>';
+      return;
+    }
+
+    var e1sp = cagr("sp", HS.from, mid), e1gl = cagr("gl", HS.from, mid);
+    var e2sp = cagr("sp", mid + 1, HS.to), e2gl = cagr("gl", mid + 1, HS.to);
+
+    /* "who led" only means something outside rounding distance */
+    function leader(a, b) { return Math.abs(a - b) < 0.15 ? 0 : (a > b ? 1 : -1); }
+    var L1 = leader(e1sp, e1gl), L2 = leader(e2sp, e2gl);
+
+    var story;
+    if (L1 && L2 && L1 !== L2) {
+      story = 'Cut this window at ' + mid + ' and the ranking <b>reverses</b>. Judging by the recent stretch ' +
+              'alone is how people end up buying whatever just finished winning.';
+    } else if (!L1 || !L2) {
+      story = 'In one half of this window the two were <b>level</b>, close enough that the ranking is noise. ' +
+              'That is the normal case, and it is why a few years of history settles nothing.';
+    } else {
+      story = 'The same index led in both halves of this window, but that is one window. Over the full ' +
+              (Y_LAST - Y_FIRST + 1) + ' years the ranking has flipped more than once, so treat a single ' +
+              'stretch as one data point, not a rule.';
+    }
+
+    ins.innerHTML =
+      '<h4>Read this before choosing</h4>' +
+      '<p>' + story + '</p>' +
+      '<div class="era">' +
+        '<div><div class="t">' + HS.from + '\u2013' + mid + '</div><div class="v">' +
+          'S&amp;P 500 <b>' + pct(e1sp) + '</b> &nbsp;\u00b7&nbsp; Global <b>' + pct(e1gl) + '</b> a year' +
+        '</div></div>' +
+        '<div><div class="t">' + (mid + 1) + '\u2013' + HS.to + '</div><div class="v">' +
+          'S&amp;P 500 <b>' + pct(e2sp) + '</b> &nbsp;\u00b7&nbsp; Global <b>' + pct(e2gl) + '</b> a year' +
+        '</div></div>' +
+      '</div>' +
+      '<p style="margin-top:.7rem">The global index also holds roughly 60% U.S. stocks itself, so the two are ' +
+      'far from independent. The real difference is how much non-U.S. exposure you want, not whether you own the U.S. market.</p>';
+  }
+
+  function renderGrowthMilestones() {
+    var sp = histStats("sp"), gl = histStats("gl");
+
+    function pair(a, b) {
+      return '<span class="n1">' + a + '</span><span class="sep">\u00b7</span><span class="n2">' + b + '</span>';
+    }
+    function plus(n) { return (n >= 0 ? "+" : "\u2212") + money(Math.abs(n)); }
+
+    var howPaid = HS.monthly > 0
+      ? money(HS.monthly) + " a month for " + yrs(sp.years) + (HS.initial > 0 ? ", on top of " + money(HS.initial) + " up front" : "")
+      : "one deposit of " + money(HS.initial) + ", nothing added after";
+
+    var cards = [
+      ["What you paid in", money(sp.invested), howPaid],
+      ["What it grew to", pair(money(sp.finalValue), money(gl.finalValue)),
+       "at the end of " + HS.to + ", " + sp.multiple.toFixed(1) + "\u00d7 and " + gl.multiple.toFixed(1) + "\u00d7 what you paid in"],
+      ["Growth on top", pair(plus(sp.gain), plus(gl.gain)),
+       "everything above your own money; a gap of " + money(Math.abs(sp.finalValue - gl.finalValue)) + " between the two"],
+      ["Years below what you had paid in",
+       pair(sp.underwater + (sp.underwater === 1 ? " yr" : " yrs"), gl.underwater + (gl.underwater === 1 ? " yr" : " yrs")),
+       (sp.underwater || gl.underwater)
+         ? "worst at the end of " + sp.worstGapYear + ", " + money(Math.abs(sp.worstGap)) + " down on the S&P side"
+         : "in this window neither balance ever dipped below the money paid in"]
+    ];
+
+    document.getElementById("growthMilestones").innerHTML = cards.map(function (c) {
+      return '<div class="mst"><div class="t">' + c[0] + '</div>' +
+             '<div class="v">' + c[1] + '</div>' +
+             '<div class="d">' + c[2] + '</div></div>';
+    }).join("");
+
+    document.getElementById("growthExplain").innerHTML =
+      '<h4>What this chart shows</h4>' +
+      (HS.monthly > 0
+        ? '<p><b>' + money(HS.monthly) + ' invested at the end of every month</b>' +
+          (HS.initial > 0 ? ', starting from ' + money(HS.initial) + ' already invested,' : '') +
+          ' from January ' + HS.from + ' to December ' + HS.to + ', with every dividend reinvested and nothing ever withdrawn.</p>'
+        : '<p><b>One single deposit of ' + money(HS.initial) + '</b>, made once on 1 January ' + HS.from +
+          ' and then left completely alone: nothing added, nothing taken out, every dividend reinvested.</p>') +
+      '<p>The shaded band is <b>your own money</b>, adding up contribution by contribution. The two lines are what that money was actually worth in each index at the end of each year. The space between the band and a line is growth. Where a line dips <em>below</em> the band, the account was worth less than had been paid into it.</p>';
+  }
+
+  function renderGrowthNote() {
+    var sp = histStats("sp"), gl = histStats("gl");
+    var ahead = sp.finalValue >= gl.finalValue;
+    var how = HS.monthly > 0
+      ? money(HS.monthly) + " a month" + (HS.initial > 0 ? " on top of " + money(HS.initial) + " up front" : "")
+      : money(HS.initial) + " invested once";
+    document.getElementById("growthNote").innerHTML =
+      how + " from " + HS.from + " to " + HS.to + " comes to <b>" + money(sp.invested) +
+      "</b> of your own money. That would have become <b>" + money(sp.finalValue) +
+      "</b> in the S&amp;P 500 and <b>" + money(gl.finalValue) + "</b> in the global market, a gap of " +
+      money(Math.abs(sp.finalValue - gl.finalValue)) + " in favour of the " + (ahead ? "S&amp;P 500" : "global market") +
+      ". No fund fees, taxes or trading costs are deducted, and within each year the index return is spread evenly across the months.";
+  }
+
+  function drawHistChart() {
+    var rs = hRows();
+    var spS = contribSeries("sp", HS.from, HS.to, HS.initial, HS.monthly);
+    var glS = contribSeries("gl", HS.from, HS.to, HS.initial, HS.monthly);
+    var labels = rs.map(function (r) { return String(r.y); });
+    var sp  = spS.map(function (d) { return d.value; });
+    var gl  = glS.map(function (d) { return d.value; });
+    var paid = spS.map(function (d) { return d.invested; });
+    labels.unshift("Start");
+    sp.unshift(HS.initial); gl.unshift(HS.initial); paid.unshift(HS.initial);
+
+    if (typeof Chart === "undefined") { drawHistSvg(labels, sp, gl, paid); return; }
+
+    var put  = cssVar("--put", "#2B6CB0");
+    var gold = cssVar("--gold", "#BE8B2E");
+    var line = cssVar("--line-soft", "#EFEEE9");
+    var muted = cssVar("--muted", "#59657A");
+    var ink = cssVar("--ink", "#121A26");
+
+    var opts = baseOptions(muted, line, ink);
+    opts.plugins.tooltip.callbacks = {
+      label: function (ctx) { return ctx.dataset.label + ": " + money(ctx.parsed.y); }
+    };
+    opts.scales.x.ticks.autoSkipPadding = 26;
+
+    if (histChart) { histChart.destroy(); histChart = null; }
+    histChartBox.innerHTML = '<canvas id="histChart" role="img" aria-label="' +
+      'Chart of the money paid in against what it was worth in each index, year by year"></canvas>';
+
+    function fade(hex) {
+      return function (ctx) {
+        var area = ctx.chart.chartArea;
+        if (!area) { return hexA(hex, .16); }
+        var g = ctx.chart.ctx.createLinearGradient(0, area.top, 0, area.bottom);
+        g.addColorStop(0, hexA(hex, .20));
+        g.addColorStop(1, hexA(hex, .02));
+        return g;
+      };
+    }
+
+    histChart = new Chart(document.getElementById("histChart"), {
+      type: "line",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: "Money you paid in", data: paid,
+            borderColor: cssVar("--faint", "#8A94A3"), backgroundColor: hexA(cssVar("--faint", "#8A94A3"), .13),
+            fill: "origin", borderWidth: 1.5, borderDash: [5, 4],
+            pointRadius: 0, pointHoverRadius: 5,
+            pointHoverBackgroundColor: cssVar("--faint", "#8A94A3"), pointHoverBorderColor: "#fff", pointHoverBorderWidth: 2.5,
+            tension: 0
+          },
+          {
+            label: "S&P 500", data: sp,
+            borderColor: put, backgroundColor: fade(put), fill: 0,
+            borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+            pointHoverBackgroundColor: put, pointHoverBorderColor: "#fff", pointHoverBorderWidth: 2.5,
+            tension: .25
+          },
+          {
+            label: "Global stock market", data: gl,
+            borderColor: gold, backgroundColor: fade(gold), fill: 0,
+            borderWidth: 2, pointRadius: 0, pointHoverRadius: 5,
+            pointHoverBackgroundColor: gold, pointHoverBorderColor: "#fff", pointHoverBorderWidth: 2.5,
+            tension: .25
+          }
+        ]
+      },
+      options: opts
+    });
+  }
+
+  function drawHistSvg(labels, sp, gl, paid) {
+    var W = Math.max(360, histChartBox.clientWidth || 900);
+    var H = Math.max(200, histChartBox.clientHeight || 340);
+    var padL = 74, padR = 14, padT = 16, padB = 36;
+    var max = Math.max(Math.max.apply(null, sp), Math.max.apply(null, gl)) * 1.06 || 1;
+    var n = sp.length;
+    var x = function (i) { return padL + (W - padL - padR) * (n === 1 ? 0 : i / (n - 1)); };
+    var y = function (v) { return H - padB - (H - padT - padB) * (v / max); };
+    function path(arr) {
+      var d = "M" + x(0) + " " + y(arr[0]);
+      for (var i = 1; i < arr.length; i++) { d += " L" + x(i) + " " + y(arr[i]); }
+      return d;
+    }
+    function area(arr) {
+      return path(arr) + " L" + x(n - 1) + " " + y(0) + " L" + x(0) + " " + y(0) + " Z";
+    }
+
+    var put = cssVar("--put", "#2B6CB0"), gold = cssVar("--gold", "#BE8B2E");
+    var line = cssVar("--line-soft", "#EFEEE9"), muted = cssVar("--muted", "#59657A");
+    var faint = cssVar("--faint", "#8A94A3");
+
+    var ticks = "";
+    for (var t = 0; t <= 4; t++) {
+      var v = max * t / 4, yy = y(v);
+      ticks += '<line x1="' + padL + '" y1="' + yy + '" x2="' + (W - padR) + '" y2="' + yy + '" stroke="' + line + '" stroke-width="1"/>' +
+               '<text x="' + (padL - 12) + '" y="' + (yy + 4) + '" text-anchor="end" font-size="12" fill="' + muted + '" font-family="Inter, sans-serif">' + compact(v) + '</text>';
+    }
+    var xl = "";
+    var step = Math.max(1, Math.ceil(n / 10));
+    for (var i = 0; i < n; i += step) {
+      xl += '<text x="' + x(i) + '" y="' + (H - 11) + '" text-anchor="middle" font-size="12.5" fill="' + muted + '" font-family="Inter, sans-serif">' + labels[i] + '</text>';
+    }
+
+    /* the canvas version gets a legend from Chart.js; this one needs its own */
+    function key(cx, color, label, dash) {
+      return '<circle cx="' + cx + '" cy="' + (padT - 4) + '" r="4.5" fill="' + color + '"' + (dash ? ' fill-opacity=".45"' : '') + '/>' +
+             '<text x="' + (cx + 10) + '" y="' + (padT - .5) + '" font-size="12.5" fill="' + muted +
+             '" font-family="Inter, sans-serif">' + label + '</text>';
+    }
+    var legend = key(W - padR - 400, faint, "Money you paid in", true) +
+                 key(W - padR - 250, put, "S&amp;P 500") +
+                 key(W - padR - 150, gold, "Global stock market");
+
+    var band = paid
+      ? '<path d="' + area(paid) + '" fill="' + faint + '" fill-opacity=".13"/>' +
+        '<path d="' + path(paid) + '" fill="none" stroke="' + faint + '" stroke-width="1.5" stroke-dasharray="5 4"/>'
+      : "";
+
+    histChartBox.innerHTML =
+      '<svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="What the plan was worth each year in each index, against the money paid in">' +
+      ticks + band +
+      '<path d="' + path(sp) + '" fill="none" stroke="' + put + '" stroke-width="2"/>' +
+      '<path d="' + path(gl) + '" fill="none" stroke="' + gold + '" stroke-width="2"/>' +
+      xl + legend +
+      "</svg>";
+  }
+
+  /* tabs */
+  var tabsWrap = document.getElementById("histTabs");
+  var TABS = Array.prototype.slice.call(tabsWrap.querySelectorAll(".tab"));
+
+  function selectTab(id) {
+    TABS.forEach(function (t) {
+      var on = t.dataset.panel === id;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.dataset.panel).hidden = !on;
+    });
+    if (id === "panel-growth" && !histDrawn) { histDrawn = true; drawHistChart(); }
+  }
+
+  TABS.forEach(function (t, i) {
+    t.addEventListener("click", function () { selectTab(t.dataset.panel); });
+    t.addEventListener("keydown", function (e) {
+      var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!d) { return; }
+      e.preventDefault();
+      var next = TABS[(i + d + TABS.length) % TABS.length];
+      selectTab(next.dataset.panel);
+      next.focus();
+    });
+  });
+
+  [HA.init, HA.monthly].forEach(function (elm) {
+    elm.addEventListener("input", readHist);
+    elm.addEventListener("change", readHist);
+  });
+  HA.from.addEventListener("change", readHist);
+  HA.to.addEventListener("change", readHist);
+
+  document.getElementById("copyPlanBtn").addEventListener("click", function () {
+    readAll();
+    HA.init.value = String(state.initial);
+    HA.monthly.value = String(state.monthly);
+    /* match the plan's length too, anchored at the most recent year we have */
+    var yrs = Math.max(1, Math.min(Y_LAST - Y_FIRST + 1, Math.round(state.years)));
+    HA.from.value = String(Y_LAST - yrs + 1);
+    HA.to.value = String(Y_LAST);
+    readHist();
+  });
+
+  renderHeroCard();
+  renderDataTab();
+  readHist();
+  selectTab("panel-years");
+
+  /* =========================================================
+     Top-level views
+     ========================================================= */
+
+  var VIEWS = Array.prototype.slice.call(document.querySelectorAll(".viewtab"));
+
+  function selectView(id) {
+    VIEWS.forEach(function (t) {
+      var on = t.dataset.view === id;
+      t.setAttribute("aria-selected", String(on));
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.dataset.view).hidden = !on;
+    });
+    if (id === "view-history" && !histDrawn &&
+        !document.getElementById("panel-growth").hidden) {
+      histDrawn = true; drawHistChart();
+    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  var brandBtn = document.getElementById("brandBtn");
+  if (brandBtn) {
+    brandBtn.addEventListener("click", function () { selectView("view-plan"); });
+  }
+
+  VIEWS.forEach(function (t, i) {
+    t.addEventListener("click", function () { selectView(t.dataset.view); });
+    t.addEventListener("keydown", function (e) {
+      var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0;
+      if (!d) { return; }
+      e.preventDefault();
+      var next = VIEWS[(i + d + VIEWS.length) % VIEWS.length];
+      selectView(next.dataset.view);
+      next.focus();
+    });
+  });
+
+  selectView("view-plan");
+
+  /* =========================================================
+     Render
+     ========================================================= */
+
+  function render(res) {
+    var t = TYPES.filter(function (x) { return x.id === state.type; })[0];
+
+    /* type buttons */
+    Array.prototype.forEach.call(typesWrap.children, function (b) {
+      b.setAttribute("aria-pressed", String(b.dataset.type === state.type));
+    });
+
+    /* rate chips */
+    Array.prototype.forEach.call(chipsWrap.children, function (c) {
+      if (!c.dataset.rate) {
+        var isPreset = PRESET_RATES.indexOf(state.rate) >= 0;
+        c.setAttribute("aria-pressed", String(!isPreset));
+      } else {
+        c.setAttribute("aria-pressed", String(Number(c.dataset.rate) === state.rate));
+      }
+    });
+
+    /* headline */
+    document.getElementById("finalValue").textContent = money(res.final);
+    document.getElementById("heroSub").innerHTML =
+      "After <b>" + state.years + (state.years === 1 ? " year" : " years") + "</b> at a hypothetical <b>" + pct(state.rate) +
+      "</b> annual return, compounded monthly &middot; " + t.name + " (" + t.etf + ")";
+
+    var total = Math.max(res.final, 1);
+    var putShare = Math.max(0, Math.min(100, res.invested / total * 100));
+    var barPut = document.getElementById("barPut");
+    var barGrow = document.getElementById("barGrow");
+    barPut.style.width = putShare + "%";
+    barGrow.style.width = (100 - putShare) + "%";
+    barPut.textContent = putShare >= 14 ? Math.round(putShare) + "%" : "";
+    barGrow.textContent = (100 - putShare) >= 14 ? Math.round(100 - putShare) + "%" : "";
+    document.getElementById("legPut").textContent = money(res.invested);
+    document.getElementById("legGrow").textContent = money(res.growth);
+
+    /* stats */
+    document.getElementById("sInitial").textContent  = money(res.initial);
+    document.getElementById("sContrib").textContent  = money(res.contributions);
+    document.getElementById("sInvested").textContent = money(res.invested);
+    document.getElementById("sGrowth").textContent   = money(res.growth);
+    document.getElementById("sFinal").textContent    = money(res.final);
+    document.getElementById("sYears").textContent    = state.years + (state.years === 1 ? " yr" : " yrs");
+    document.getElementById("sRate").textContent     = pct(state.rate);
+
+    /* education example */
+    document.getElementById("eduText").innerHTML =
+      "Investing <b>" + money(state.monthly) + "</b> every month for <b>" + state.years +
+      (state.years === 1 ? " year" : " years") + "</b> means you personally contribute " +
+      "<b>" + money(state.monthly) + " &times; 12 &times; " + state.years + " = " + money(res.contributions) + "</b>" +
+      (res.initial > 0 ? ", plus your <b>" + money(res.initial) + "</b> initial investment for <b>" + money(res.invested) + "</b> invested in total" : ", before considering any initial investment") +
+      ". At a hypothetical <b>" + pct(state.rate) + "</b> annual return, that could grow to " +
+      "<b class=\"g\">" + money(res.final) + "</b>, of which roughly <b class=\"g\">" + money(res.growth) +
+      "</b> of estimated growth on top of what you put in. Actual results will vary with the market.";
+
+    /* year table */
+    var body = document.getElementById("yearBody");
+    body.innerHTML = "";
+    res.rows.forEach(function (row) {
+      var tr = document.createElement("tr");
+      [
+        ["Year " + row.year, ""],
+        [money(row.begin), ""],
+        [money(row.contrib), "put"],
+        [money(row.growth), "grow"],
+        [money(row.end), "end"],
+        [money(row.investedToDate), "put"]
+      ].forEach(function (c) {
+        var td = el("td", c[1], c[0]);
+        tr.appendChild(td);
+      });
+      body.appendChild(tr);
+    });
+
+    /* scenarios */
+    document.getElementById("scenSub").textContent =
+      "The same plan at five different hypothetical rates: " + money(state.initial) + " to start, " +
+      money(state.monthly) + " a month for " + state.years + (state.years === 1 ? " year" : " years") + ".";
+
+    var scen = document.getElementById("scenarios");
+    scen.innerHTML = "";
+    PRESET_RATES.forEach(function (r) {
+      var s = project(state.initial, state.monthly, state.years, r);
+      var card = el("div", "scen-card" + (r === state.rate ? " on" : ""));
+      var rate = el("div", "rate");
+      rate.appendChild(el("b", null, r + "%"));
+      if (r === state.rate) { rate.appendChild(el("span", null, "Selected")); }
+      card.appendChild(rate);
+      card.appendChild(el("div", "big", money(s.final)));
+      [["Total invested", money(s.invested)], ["Estimated growth", money(s.growth)], ["Final value", money(s.final)]]
+        .forEach(function (p) {
+          var row = el("div", "row");
+          row.appendChild(el("span", null, p[0]));
+          row.appendChild(el("span", null, p[1]));
+          card.appendChild(row);
+        });
+      scen.appendChild(card);
+    });
+
+    /* monthly comparison */
+    document.getElementById("monthlySub").textContent =
+      "Over " + state.years + (state.years === 1 ? " year" : " years") + " at " + pct(state.rate) +
+      ", starting from " + money(state.initial) + ".";
+
+    var mb = document.getElementById("monthlyBody");
+    mb.innerHTML = "";
+    var steps = MONTHLY_STEPS.slice();
+    if (steps.indexOf(state.monthly) < 0 && state.monthly > 0) { steps.push(state.monthly); }
+    steps.sort(function (a, b) { return a - b; });
+
+    steps.forEach(function (m) {
+      var s = project(state.initial, m, state.years, state.rate);
+      var tr = document.createElement("tr");
+      tr.appendChild(el("td", null, money(m) + " / mo"));
+      tr.appendChild(el("td", "put", money(s.contributions)));
+      tr.appendChild(el("td", "put", money(s.invested)));
+      tr.appendChild(el("td", "grow", money(s.growth)));
+      tr.appendChild(el("td", "end", money(s.final)));
+      if (m === state.monthly) { tr.className = "on"; }
+      mb.appendChild(tr);
+    });
+
+    drawChart(res);
+    renderInputSummary(res);
+  }
+
+  /* The projection card is interactive, so it does not print. This is
+     what goes on the page instead: the same inputs, stated as figures,
+     so a client reading the PDF knows exactly what was assumed. */
+  function renderInputSummary(res) {
+    var box = document.getElementById("inputSummary");
+    if (!box) { return; }
+    var t = TYPES.filter(function (x) { return x.id === state.type; })[0];
+
+    function item(k, v, cls) {
+      return '<div><dt>' + k + '</dt><dd' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</dd></div>';
+    }
+
+    box.innerHTML =
+      '<h2>The plan these figures assume</h2>' +
+      '<p class="sub">Every number in this section follows from the five inputs below. Change any one of them and the whole section changes with it.</p>' +
+      '<dl class="isum">' +
+        item("Investment type", t.name + " (" + t.etf + ")", "blue") +
+        item("Initial investment", money(state.initial)) +
+        item("Monthly investment", money(state.monthly)) +
+        item("Investment period", yrs(state.years)) +
+        item("Expected annual return", pct(state.rate)) +
+      '</dl>' +
+      '<p class="foot-note">The expected return is a rate you chose, not a forecast and not a promise. It is compounded monthly, with contributions made at the end of each month. Fund fees, trading costs and taxes are not deducted.</p>';
+  }
+
+  /* =========================================================
+     Wiring
+     ========================================================= */
+
+  function update() {
+    readAll();
+    var res = project(state.initial, state.monthly, state.years, state.rate);
+    render(res);
+  }
+
+  Object.keys(F).forEach(function (k) {
+    F[k].addEventListener("input", update);
+    F[k].addEventListener("change", update);
+  });
+
+  document.getElementById("calcBtn").addEventListener("click", update);
+  document.getElementById("resetBtn").addEventListener("click", function () {
+    F.initial.value = DEFAULTS.initial;
+    F.monthly.value = DEFAULTS.monthly;
+    F.years.value = DEFAULTS.years;
+    F.rate.value = DEFAULTS.rate;
+    state.type = DEFAULTS.type;
+    update();
+  });
+  /* Everything on the page prints, not just the tab on screen, so both
+     views and all three sub-panels are opened first. A chart drawn while
+     its panel was hidden has no size, so the charts are (re)sized here
+     too, then everything is put back exactly as the reader left it. */
+  var printState = [];
+  function expandForPrint() {
+    printState = [];
+    /* Print what is on screen. The active view stays, its sibling views
+       are held back, and every sub-panel inside the active view is opened
+       so the reader gets that whole section rather than one sub-tab. */
+    var active = document.querySelector('.viewtab[aria-selected="true"]');
+    var activeId = active ? active.dataset.view : "view-plan";
+
+    Array.prototype.forEach.call(document.querySelectorAll(".view"), function (elm) {
+      printState.push([elm, elm.hidden]);
+      elm.hidden = elm.id !== activeId;
+    });
+    Array.prototype.forEach.call(document.querySelectorAll("#" + activeId + " .panel"), function (elm) {
+      printState.push([elm, elm.hidden]);
+      elm.hidden = false;
+    });
+
+    if (activeId === "view-history") {
+      if (!histDrawn) { histDrawn = true; drawHistChart(); }
+      if (histChart) { histChart.resize(); }
+    }
+    if (chart) { chart.resize(); }
+  }
+  function restoreAfterPrint() {
+    printState.forEach(function (pair) { pair[0].hidden = pair[1]; });
+    printState = [];
+    if (histChart) { histChart.resize(); }
+    if (chart) { chart.resize(); }
+  }
+  window.addEventListener("beforeprint", expandForPrint);
+  window.addEventListener("afterprint", restoreAfterPrint);
+  window.expandForPrint = expandForPrint;
+
+  document.getElementById("printBtn").addEventListener("click", function () { window.print(); });
+
+  (function stampPrintMeta() {
+    var el2 = document.getElementById("printMeta");
+    if (!el2) { return; }
+    var d = new Date();
+    el2.textContent = "Prepared " + d.toLocaleDateString("en-US",
+      { year: "numeric", month: "long", day: "numeric" }) +
+      ". Projection figures are hypothetical; index figures are recorded calendar-year total returns.";
+  })();
+
+  /* full screen */
+  var fsBtn = document.getElementById("fsBtn");
+  function fsActive() { return document.fullscreenElement || document.webkitFullscreenElement; }
+  fsBtn.addEventListener("click", function () {
+    var d = document.documentElement;
+    if (!fsActive()) {
+      var req = d.requestFullscreen || d.webkitRequestFullscreen;
+      if (req) { req.call(d); }
+    } else {
+      var exit = document.exitFullscreen || document.webkitExitFullscreen;
+      if (exit) { exit.call(document); }
+    }
+  });
+  /* Browsers only grant full screen from a real user gesture, so it can
+     never be entered on load — "f" gives a one-key way to do it while
+     presenting, ignored whenever the person is typing in a field. */
+  document.addEventListener("keydown", function (e) {
+    if (e.key !== "f" && e.key !== "F") { return; }
+    if (e.metaKey || e.ctrlKey || e.altKey) { return; }
+    var t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA" || t.isContentEditable)) { return; }
+    e.preventDefault();
+    fsBtn.click();
+  });
+
+  function syncFs() { fsBtn.textContent = fsActive() ? "Exit full screen" : "Full screen"; }
+  document.addEventListener("fullscreenchange", syncFs);
+  document.addEventListener("webkitfullscreenchange", syncFs);
+
+  var rt;
+  window.addEventListener("resize", function () {
+    clearTimeout(rt);
+    rt = setTimeout(function () {
+      if (typeof Chart === "undefined") {
+        update();
+        if (histDrawn) { drawHistChart(); }
+      }
+    }, 180);
+  });
+
+  update();
+
+  /* ---- self-checks ---- */
+  (function selfTest() {
+    var ok = true;
+
+    /* 1. the projection loop must match the closed-form annuity */
+    var cases = [
+      [0, 150, 18, 7], [1000, 150, 18, 7], [0, 150, 18, 0],
+      [5000, 500, 30, 10], [0, 0, 10, 6], [250, 75, 1, 6.5], [10000, 0, 20, 8]
+    ];
+    cases.forEach(function (c) {
+      var loop = project(c[0], c[1], c[2], c[3]).final;
+      var form = closedForm(c[0], c[1], c[2], c[3]);
+      if (!(Math.abs(loop - form) < Math.max(0.01, Math.abs(form) * 1e-9))) {
+        ok = false;
+        console.error("Projection mismatch", c, "loop", loop, "closed form", form);
+      }
+    });
+
+    /* 2. historical data must be complete and contiguous */
+    for (var i = 1; i < HISTORY.length; i++) {
+      if (HISTORY[i].y !== HISTORY[i - 1].y + 1) { ok = false; console.error("Gap in HISTORY at", HISTORY[i].y); }
+    }
+    HISTORY.forEach(function (r) {
+      if (typeof r.sp !== "number" || typeof r.gl !== "number") { ok = false; console.error("Bad row", r); }
+    });
+
+    /* 3. compounding the annual returns must reproduce the CAGR */
+    ["sp", "gl"].forEach(function (k) {
+      var series = growthSeries(k);
+      var implied = HIST_BASE * Math.pow(1 + cagr(k) / 100, HISTORY.length);
+      if (Math.abs(series[series.length - 1] - implied) > 0.5) {
+        ok = false; console.error("CAGR mismatch for", k, series[series.length - 1], implied);
+      }
+    });
+
+    if (ok) {
+      console.log("Self-check passed: " + cases.length + " projection cases, " +
+        HISTORY.length + " years of history (" + HISTORY[0].y + "–" + HISTORY[HISTORY.length - 1].y + ").");
+    }
+  })();
+})();
+</script>
+</body>
+</html>

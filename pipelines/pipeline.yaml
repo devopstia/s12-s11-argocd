@@ -187,17 +187,15 @@ jobs:
 
 
   # ============================================================
-  # 3. BUILD AND PUSH APPLICATION IMAGE
+  # 3. BUILD APPLICATION IMAGES
   # ============================================================
   build-images:
-    name: 03 - Build and Push Application Image
+    name: 03 - Build and Push Application Images
     runs-on: ubuntu-latest
     needs: docker-setup
     env:
       AWS_REGION: us-east-1
       ECR_REGISTRY: 788210522308.dkr.ecr.us-east-1.amazonaws.com
-      ECR_REPOSITORY: frontend
-      IMAGE_TAG: frontend-${{ github.sha }}
 
     steps:
 
@@ -205,16 +203,22 @@ jobs:
       - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Build application image
+      - name: Build backend image
         run: |
           docker build \
-            --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
-            ./app
+            --tag k8s-learning-backend:${{ github.sha }} \
+            ./k8s-learning-app/backend
 
-      - name: List built application image
+      - name: Build frontend image
+        run: |
+          docker build \
+            --tag k8s-learning-frontend:${{ github.sha }} \
+            ./k8s-learning-app/frontend
+
+      - name: List built application images
         run: |
           docker image ls \
-            --filter "reference=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+            --filter "reference=k8s-learning-*:${{ github.sha }}"
 
       # Pull requests build the images but do not receive AWS credentials or push.
       - name: Configure AWS credentials
@@ -230,13 +234,32 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Push application image to Amazon ECR
+      - name: Tag images for Amazon ECR
         if: github.event_name != 'pull_request'
         run: |
-          docker push "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+          docker tag \
+            k8s-learning-backend:${{ github.sha }} \
+            $ECR_REGISTRY/backend:${{ github.sha }}
+          docker tag \
+            k8s-learning-backend:${{ github.sha }} \
+            $ECR_REGISTRY/backend:latest
+          docker tag \
+            k8s-learning-frontend:${{ github.sha }} \
+            $ECR_REGISTRY/frontend:${{ github.sha }}
+          docker tag \
+            k8s-learning-frontend:${{ github.sha }} \
+            $ECR_REGISTRY/frontend:latest
 
-      - name: List pushed application image
+      - name: Push images to Amazon ECR
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push $ECR_REGISTRY/backend:${{ github.sha }}
+          docker push $ECR_REGISTRY/backend:latest
+          docker push $ECR_REGISTRY/frontend:${{ github.sha }}
+          docker push $ECR_REGISTRY/frontend:latest
+
+      - name: List pushed application images
         if: github.event_name != 'pull_request'
         run: |
           docker image ls \
-            --filter "reference=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
+            --filter "reference=$ECR_REGISTRY/*"
