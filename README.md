@@ -276,3 +276,11 @@ Password: DevOpsEasyLearning2026@
 Username: readonly-user
 Password: DevOpsEasyLearning2026@
 ```
+
+```sh
+kubectl create secret docker-registry ecr-pull-secret \
+  --docker-server=788210522308.dkr.ecr.us-east-1.amazonaws.com \
+  --docker-username=AWS \
+  --docker-password="$(aws ecr get-login-password --region us-east-1)" \
+  --namespace=nginx-dev
+```

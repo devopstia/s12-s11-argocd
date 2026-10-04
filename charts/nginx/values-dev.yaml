@@ -5,6 +5,9 @@ image:
   tag: "frontend-9b4bb"
   pullPolicy: IfNotPresent
 
+imagePullSecrets:
+  - name: ecr-pull-secret
+
 podAnnotations:
   environment: dev
 
