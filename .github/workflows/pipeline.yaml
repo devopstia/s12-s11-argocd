@@ -203,6 +203,8 @@ jobs:
       # Each job runs on a new runner, so the source must be checked out again.
       - name: Checkout source code
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Build application image
         run: |
@@ -258,7 +260,7 @@ jobs:
           git config user.email "$PUSH_USER@users.noreply.github.com"
           git add charts/nginx/values-dev.yaml
           git commit -m "deploy(dev): update frontend to $IMAGE_TAG [skip ci]"
-          git remote set-url origin "https://$PUSH_USER:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          git remote set-url origin "https://x-access-token:$PUSH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
           git push origin HEAD:main
 
       - name: List pushed application image
