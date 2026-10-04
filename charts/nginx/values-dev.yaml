@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: 788210522308.dkr.ecr.us-east-1.amazonaws.com/frontend
-  tag: "frontend-8c397"
+  tag: "frontend-785ac"
   pullPolicy: IfNotPresent
 
 imagePullSecrets:
