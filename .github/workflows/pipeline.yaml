@@ -197,7 +197,6 @@ jobs:
       AWS_REGION: us-east-1
       ECR_REGISTRY: 788210522308.dkr.ecr.us-east-1.amazonaws.com
       ECR_REPOSITORY: frontend
-      IMAGE_TAG: frontend-${{ github.sha }}
 
     steps:
 
@@ -207,6 +206,8 @@ jobs:
 
       - name: Build application image
         run: |
+          IMAGE_TAG="frontend-${GITHUB_SHA::5}"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
           docker build \
             --tag "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
             ./app
