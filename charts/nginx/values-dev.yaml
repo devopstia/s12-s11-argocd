@@ -1,8 +1,8 @@
 replicaCount: 1
 
 image:
-  repository: leonardtia/articles
-  tag: "develop"
+  repository: 788210522308.dkr.ecr.us-east-1.amazonaws.com/frontend
+  tag: "frontend-9b4bb"
   pullPolicy: IfNotPresent
 
 podAnnotations:
